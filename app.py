@@ -286,3 +286,25 @@ def edit_employee(employee_id):
     finally:
         cur.close()
         conn.close()
+        
+# Delete Employee
+@app.route('/delete_employee/<int:employee_id>')
+def delete_employee(employee_id):
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+    
+    try:
+        cur.execute('DELETE FROM employees WHERE id = %s', (employee_id,))
+        conn.commit()
+        flash('Employee deleted successfully!', 'success')
+    except Exception as e:
+        conn.rollback()
+        flash(f'Error: {str(e)}', 'error')
+    finally:
+        cur.close()
+        conn.close()
+    
+    return redirect(url_for('landing'))
