@@ -48,18 +48,24 @@
                                 </div>
                             {% endif %}
                         </td>
+                        
                         <td>{{ employee['full_name'] }}</td>
                         <td>{{ employee['employee_id'] }}</td>
                         <td>{{ employee['phone'] }}</td>
                         <td>{{ employee['department'] }}</td>
                         <td>{{ employee['start_date'].strftime('%Y-%m-%d') }}</td>
                         <td>
+                            <a href="{{ url_for('edit_employee', employee_id=employee['id']) }}" class="btn btn-sm btn-warning">
+                                <i class="bi bi-pencil"></i> Edit
+                            </a>
+
+                              <i class="bi bi-trash"></i>
                             <a href="/edit_employee/{{ employee['id'] }}" class="btn btn-sm btn-warning">
                                 <i class="bi bi-pencil"></i>
                             </a>
                             <button class="btn btn-sm btn-danger" 
                                     onclick="confirmDelete({{ employee['id'] }})">
-                                <i class="bi bi-trash"></i>
+                                <i class="bi bi-trash"></i>Delete
                             </button>
                         </td>
                     </tr>
