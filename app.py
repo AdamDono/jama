@@ -2,7 +2,7 @@ from flask import Flask, render_template, request, redirect, url_for, session, f
 from werkzeug.security import generate_password_hash, check_password_hash
 import psycopg2
 import os
-
+from werkzeug.utils import secure_filename  # <-- Add this
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
