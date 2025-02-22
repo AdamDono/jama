@@ -2,6 +2,7 @@ body {
     font-family: Arial, sans-serif;
     margin: 0;
     padding: 0;
+    
 }
 
 .form-container {
@@ -11,6 +12,8 @@ body {
     border: 1px solid #ccc;
     border-radius: 5px;
 }
+
+
 
 nav {
     background-color: #333;
@@ -31,4 +34,39 @@ input {
     width: 100%;
     margin: 10px 0;
     padding: 8px;
+}
+
+:root {
+    --primary-color: #2c3e50;
+    --secondary-color: #3498db;
+}
+
+body {
+    font-family: 'Segoe UI', system-ui;
+    background-color: #f8f9fa;
+}
+
+.navbar {
+    background-color: var(--primary-color) !important;
+    box-shadow: 0 2px 4px rgba(0,0,0,.1);
+}
+
+.btn-success {
+    background-color: #27ae60;
+    border: none;
+    padding: 8px 20px;
+    transition: all 0.3s;
+}
+
+.btn-success:hover {
+    background-color: #219a52;
+    transform: translateY(-1px);
+}
+
+.table-hover tbody tr:hover {
+    background-color: rgba(41, 128, 185, 0.1);
+}
+
+.bi {
+    vertical-align: middle;
 }
