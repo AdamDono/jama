@@ -139,71 +139,61 @@ def login():
 def add_employee():
     if 'user_id' not in session:
         return redirect(url_for('login'))
-
+        print("\n--- ADD EMPLOYEE ROUTE TRIGGERED ---")  # Debug line
     if request.method == 'POST':
-        conn = None
-        cur = None
         try:
             # Get form data
-            full_name = request.form.get('full_name')
-            phone = request.form.get('phone')
-            employee_id = request.form.get('employee_id')
-            start_date = request.form.get('start_date')
-            department = request.form.get('department')
-
-            # Validate required fields
-            if not all([full_name, phone, employee_id, start_date, department]):
-                flash('All fields except profile picture are required!', 'error')
-                return redirect(url_for('add_employee'))
-
+            full_name = request.form['full_name']
+            phone = request.form['phone']
+            employee_id = request.form['employee_id']
+            start_date = request.form['start_date']
+            department = request.form['department']
+            print(f"[2] Received data: {full_name}, {phone}")  # Debug line
+            
             # Handle file upload
             profile_picture = None
             if 'profile_picture' in request.files:
                 file = request.files['profile_picture']
-                if file and file.filename != '' and allowed_file(file.filename):
+                if file and allowed_file(file.filename):
                     filename = secure_filename(file.filename)
-                    file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-                    file.save(file_path)
+                    file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
                     profile_picture = filename
-
+            
+            # Check for duplicates
             conn = get_db_connection()
             cur = conn.cursor()
-
-            # Check duplicates
-            cur.execute('''
-                SELECT * FROM employees 
-                WHERE phone = %s OR employee_id = %s
-            ''', (phone, employee_id))
             
+            cur.execute('SELECT * FROM employees WHERE phone = %s OR employee_id = %s',
+                       (phone, employee_id))
             if cur.fetchone():
-                flash('Phone or Employee ID already exists!', 'error')
+                flash('Phone number or Employee ID already exists!', 'error')
                 return redirect(url_for('add_employee'))
-
+            
             # Insert employee
             cur.execute('''
                 INSERT INTO employees 
                 (user_id, full_name, phone, employee_id, start_date, department, profile_picture)
                 VALUES (%s, %s, %s, %s, %s, %s, %s)
             ''', (session['user_id'], full_name, phone, employee_id, start_date, department, profile_picture))
-
+            
             conn.commit()
             flash('Employee added successfully!', 'success')
             return redirect(url_for('landing'))
-
+            
         except Exception as e:
-            if conn:
-                conn.rollback()
+            conn.rollback()
             flash(f'Error: {str(e)}', 'error')
             return redirect(url_for('add_employee'))
-
+            
         finally:
-            if cur:
-                cur.close()
-            if conn:
-                conn.close()
-
-    # GET request
+            cur.close()
+            conn.close()
+            
     return render_template('add_employee.html')
+
+# Edit Employee Route (similar structure with update logic)
+# Delete Employee Route
+# Full Employee Routes would need about 50-70 lines of code
 
 @app.route('/logout')
 def logout():
@@ -215,5 +205,3 @@ def landing():
     if 'user_id' not in session:
         return redirect(url_for('login'))
     return render_template('landing.html')
-
-
