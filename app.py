@@ -3,6 +3,8 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import psycopg2
 import os
 from werkzeug.utils import secure_filename  # <-- Add this
+from psycopg2.extras import DictCursor 
+import psycopg2.extras  # Add this line
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
@@ -27,8 +29,8 @@ DATABASE = {
 
 
 def get_db_connection():
-    conn = psycopg2.connect(**DATABASE)
-    return conn
+ 
+    return psycopg2.connect(**DATABASE)
 
 # Create users table if it does not exist
 conn = get_db_connection()
@@ -76,7 +78,7 @@ def signup():
         password = request.form['password']
         
         conn = get_db_connection()
-        cur = conn.cursor()
+        cur = conn.cursor(cursor_factory=DictCursor)  # Add this
         
         try:
             cur.execute('SELECT * FROM users WHERE username = %s OR email = %s', (username, email))
@@ -113,15 +115,16 @@ def login():
         password = request.form['password']
         
         conn = get_db_connection()
-        cur = conn.cursor()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor) 
         
         try:
             cur.execute('SELECT * FROM users WHERE username = %s', (username,))
             user = cur.fetchone()
             
-            if user and check_password_hash(user[3], password):
-                session['user_id'] = user[0]
-                session['username'] = user[1]
+            if user and check_password_hash(user['password'], password):
+            
+                session['user_id'] = user['id']
+                session['username'] = user['username']
                 flash('Login successful!', 'success')
                 return redirect(url_for('landing'))
             else:
@@ -139,6 +142,7 @@ def login():
 def add_employee():
     if 'user_id' not in session:
         return redirect(url_for('login'))
+    
 
     if request.method == 'POST':
         conn = None
@@ -150,6 +154,7 @@ def add_employee():
             employee_id = request.form.get('employee_id')
             start_date = request.form.get('start_date')
             department = request.form.get('department')
+            user_id = session['user_id']
 
             # Validate required fields
             if not all([full_name, phone, employee_id, start_date, department]):
@@ -209,11 +214,33 @@ def add_employee():
 def logout():
     session.clear()
     return redirect(url_for('login'))
-
 @app.route('/landing')
 def landing():
     if 'user_id' not in session:
         return redirect(url_for('login'))
-    return render_template('landing.html')
+    
+    conn = get_db_connection()
+    try:
+        # CREATE CURSOR ONCE WITH DictCursor
+        cur = conn.cursor(cursor_factory=DictCursor)
+        cur.execute('''
+            SELECT * FROM employees 
+            WHERE user_id = %s 
+            ORDER BY created_at DESC
+        ''', (session['user_id'],))
+        employees = cur.fetchall()
+    except Exception as e:
+        print(f"Database error: {e}")
+        employees = []
+    finally:
+        cur.close()
+        conn.close()
+    
+    return render_template('landing.html', employees=employees)
 
 
+@app.route('/add_employee_form')
+def add_employee_form():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    return render_template('add_employee.html')
