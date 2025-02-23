@@ -5,10 +5,15 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
-    <nav>
+    <nav class="main-nav">
         <div class="nav-container">
-            <h1>Welcome, {{ session.username }}!</h1>
-            <a href="/logout">Logout</a>
+            <h1>Employee Management System</h1>
+            <div class="nav-links">
+                <span class="welcome-msg">Welcome, {{ session.username }}!</span>
+                <a href="{{ url_for('logout') }}" class="btn-logout">
+                    <i class="bi bi-box-arrow-right"></i> Logout
+                </a>
+            </div>
         </div>
     </nav>
 
