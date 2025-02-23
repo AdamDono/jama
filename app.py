@@ -230,3 +230,81 @@ def add_employee_form():
     if 'user_id' not in session:
         return redirect(url_for('login'))
     return render_template('add_employee.html')
+
+# Edit Employee
+@app.route('/edit_employee/<int:employee_id>', methods=['GET', 'POST'])
+def edit_employee(employee_id):
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=DictCursor)
+    
+    try:
+        # Get existing employee data
+        cur.execute('SELECT * FROM employees WHERE id = %s', (employee_id,))
+        employee = cur.fetchone()
+
+        if request.method == 'POST':
+            # Get updated form data
+            full_name = request.form['full_name']
+            phone = request.form['phone']
+            department = request.form['department']
+            start_date = request.form['start_date']
+            
+            # Handle file upload
+            profile_picture = employee['profile_picture']
+            if 'profile_picture' in request.files:
+                file = request.files['profile_picture']
+                if file and allowed_file(file.filename):
+                    filename = secure_filename(file.filename)
+                    file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+                    profile_picture = filename
+
+            # Update database
+            cur.execute('''
+                UPDATE employees SET
+                full_name = %s,
+                phone = %s,
+                department = %s,
+                start_date = %s,
+                profile_picture = %s
+                WHERE id = %s
+            ''', (full_name, phone, department, start_date, profile_picture, employee_id))
+            
+            conn.commit()
+            flash('Employee updated successfully!', 'success')
+            return redirect(url_for('landing'))
+
+        return render_template('edit_employee.html', employee=employee)
+
+    except Exception as e:
+        conn.rollback()
+        flash(f'Error: {str(e)}', 'error')
+        return redirect(url_for('landing'))
+        
+    finally:
+        cur.close()
+        conn.close()
+        
+# Delete Employee
+@app.route('/delete_employee/<int:employee_id>')
+def delete_employee(employee_id):
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+    
+    try:
+        cur.execute('DELETE FROM employees WHERE id = %s', (employee_id,))
+        conn.commit()
+        flash('Employee deleted successfully!', 'success')
+    except Exception as e:
+        conn.rollback()
+        flash(f'Error: {str(e)}', 'error')
+    finally:
+        cur.close()
+        conn.close()
+    
+    return redirect(url_for('landing'))
