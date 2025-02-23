@@ -8,9 +8,14 @@
 <body>
     <nav class="main-nav">
         <div class="nav-container">
-            <h1>Employee Management System</h1>
+            <h1>Employee Management</h1>
             <div class="nav-links">
-                <span class="welcome-msg">Welcome, {{ session.username }}!</span>
+                {% if user_role == 'admin' %}
+                <a href="{{ url_for('admin_dashboard') }}" class="btn-admin">
+                    <i class="bi bi-speedometer2"></i> Dashboard
+                </a>
+                {% endif %}
+                <span class="welcome-msg">Welcome, {{ session.username }} ({{ user_role }})</span>
                 <a href="{{ url_for('logout') }}" class="btn-logout">
                     <i class="bi bi-box-arrow-right"></i> Logout
                 </a>

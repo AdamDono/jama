@@ -200,30 +200,41 @@ def handle_submission():
 def logout():
     session.clear()
     return redirect(url_for('login'))
+
+
 @app.route('/landing')
 def landing():
     if 'user_id' not in session:
         return redirect(url_for('login'))
     
     conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=DictCursor)
+    
     try:
-        # CREATE CURSOR ONCE WITH DictCursor
-        cur = conn.cursor(cursor_factory=DictCursor)
-        cur.execute('''
-            SELECT * FROM employees 
-            WHERE user_id = %s 
-            ORDER BY created_at DESC
-        ''', (session['user_id'],))
+        # Check if user is admin
+        cur.execute('SELECT role FROM users WHERE id = %s', (session['user_id'],))
+        user_role = cur.fetchone()['role']
+
+        # Query based on role
+        if user_role == 'admin':
+            cur.execute('SELECT * FROM employees ORDER BY created_at DESC')
+        else:
+            cur.execute('''
+                SELECT * FROM employees 
+                WHERE user_id = %s 
+                ORDER BY created_at DESC
+            ''', (session['user_id'],))
+            
         employees = cur.fetchall()
+        return render_template('landing.html', employees=employees, user_role=user_role)
+        
     except Exception as e:
         print(f"Database error: {e}")
-        employees = []
+        return render_template('landing.html', employees=[])
+        
     finally:
         cur.close()
         conn.close()
-    
-    return render_template('landing.html', employees=employees)
-
 
 @app.route('/add_employee_form')
 def add_employee_form():
@@ -308,3 +319,71 @@ def delete_employee(employee_id):
         conn.close()
     
     return redirect(url_for('landing'))
+
+
+@app.route('/promote-user/<int:user_id>', methods=['POST'])
+def promote_user(user_id):
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    
+    conn = get_db_connection()
+    cur = conn.cursor()
+    
+    try:
+        # Verify current user is admin
+        cur.execute('SELECT role FROM users WHERE id = %s', (session['user_id'],))
+        if cur.fetchone()[0] != 'admin':
+            flash('Admin privileges required', 'error')
+            return redirect(url_for('landing'))
+
+        # Promote target user
+        cur.execute('UPDATE users SET role = "admin" WHERE id = %s', (user_id,))
+        conn.commit()
+        flash('User promoted to admin', 'success')
+        
+    except Exception as e:
+        conn.rollback()
+        flash(f'Promotion failed: {str(e)}', 'error')
+        
+    finally:
+        cur.close()
+        conn.close()
+    
+    return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin/dashboard')
+def admin_dashboard():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=DictCursor)
+    
+    try:
+        # Verify admin role
+        cur.execute('SELECT role FROM users WHERE id = %s', (session['user_id'],))
+        if cur.fetchone()['role'] != 'admin':
+            flash('Admin access required', 'error')
+            return redirect(url_for('landing'))
+
+        # Get all users and employees
+        cur.execute('SELECT * FROM users')
+        users = cur.fetchall()
+        
+        cur.execute('SELECT * FROM employees')
+        all_employees = cur.fetchall()
+        
+        return render_template('admin_dashboard.html', 
+                             users=users, 
+                             employees=all_employees)
+        
+    except Exception as e:
+        print(f"Admin dashboard error: {e}")
+        return redirect(url_for('landing'))
+        
+    finally:
+        cur.close()
+        conn.close()
+        
+        
+        
