@@ -383,35 +383,31 @@ def admin_dashboard():
     cur = conn.cursor(cursor_factory=DictCursor)
     
     try:
-        # Verify admin role using user ID from session
-        cur.execute('''
-            SELECT role 
-            FROM users 
-            WHERE id = %s
-        ''', (session['user_id'],))
+        # Get current user's role
+        cur.execute('SELECT role FROM users WHERE id = %s', (session['user_id'],))
         user = cur.fetchone()
         
+        # Validate admin access
         if not user or user['role'] != 'admin':
-            flash('Admin access required', 'error')
+            flash('🔒 Admin access required', 'error')
             return redirect(url_for('landing'))
 
-        # Get all users and employees
+        # Get all data
         cur.execute('SELECT * FROM users')
         users = cur.fetchall()
         
         cur.execute('SELECT * FROM employees')
-        all_employees = cur.fetchall()
+        employees = cur.fetchall()
         
-        return render_template('admin_dashboard.html', 
-                            users=users, 
-                            employees=all_employees)
+        return render_template('admin_dashboard.html',
+                             users=users,
+                             employees=employees,
+                             user_role=user['role'])
         
     except Exception as e:
-        print(f"Admin Dashboard Error: {str(e)}")  # Debug logging
+        print(f"Admin Dashboard Error: {str(e)}")
         return redirect(url_for('landing'))
         
     finally:
         cur.close()
         conn.close()
-        
-        

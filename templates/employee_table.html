@@ -1,0 +1,40 @@
+<div class="table-responsive">
+    <table class="table table-striped table-hover">
+        <thead>
+            <tr>
+                <th>Photo</th>
+                <th>Name</th>
+                <th>Employee ID</th>
+                <th>Department</th>
+                <th>Added By</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for employee in employees %}
+            <tr>
+                <td>
+                    {% if employee.profile_picture %}
+                    <img src="{{ url_for('static', filename='uploads/' + employee.profile_picture) }}" 
+                         class="employee-photo">
+                    {% else %}
+                    <div class="photo-placeholder">
+                        <i class="bi bi-person"></i>
+                    </div>
+                    {% endif %}
+                </td>
+                <td>{{ employee.full_name }}</td>
+                <td>{{ employee.employee_id }}</td>
+                <td>{{ employee.department }}</td>
+                <td>
+                    {% set creator = users|selectattr('id', 'equalto', employee.user_id)|first %}
+                    {{ creator.username if creator else 'System' }}
+                </td>
+                <td>
+                    <!-- Keep existing action buttons -->
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>

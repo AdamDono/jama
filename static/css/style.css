@@ -358,3 +358,31 @@
   background: #c0392b;
   transform: translateY(-1px);
 }
+
+/* Admin Dashboard Specific */
+.admin-section {
+  background: white;
+  padding: 2rem;
+  border-radius: 10px;
+  box-shadow: 0 2px 15px rgba(0,0,0,0.1);
+  margin-bottom: 2rem;
+}
+
+.employee-photo {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.photo-placeholder {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: #f0f0f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  color: #666;
+}
