@@ -44,6 +44,7 @@ cur.execute('''
         username VARCHAR(50) UNIQUE NOT NULL,
         email VARCHAR(100) UNIQUE NOT NULL,
         password TEXT NOT NULL,
+        role VARCHAR(20) DEFAULT 'user',  -- ADD THIS LINE
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
 ''')
@@ -387,16 +388,19 @@ def admin_dashboard():
         cur.execute('SELECT role FROM users WHERE id = %s', (session['user_id'],))
         user = cur.fetchone()
         
-        # Validate admin access
         if not user or user['role'] != 'admin':
-            flash('🔒 Admin access required', 'error')
+            flash('Admin access required', 'error')
             return redirect(url_for('landing'))
 
-        # Get all data
+        # Get all users and employees
         cur.execute('SELECT * FROM users')
         users = cur.fetchall()
         
-        cur.execute('SELECT * FROM employees')
+        cur.execute('''
+            SELECT e.*, u.username as creator 
+            FROM employees e
+            LEFT JOIN users u ON e.user_id = u.id
+        ''')
         employees = cur.fetchall()
         
         return render_template('admin_dashboard.html',
@@ -407,7 +411,6 @@ def admin_dashboard():
     except Exception as e:
         print(f"Admin Dashboard Error: {str(e)}")
         return redirect(url_for('landing'))
-        
     finally:
         cur.close()
         conn.close()
