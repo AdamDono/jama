@@ -129,6 +129,7 @@ def login():
             
                 session['user_id'] = user['id']
                 session['username'] = user['username']
+                session['user_role'] = user['role']  # ADD THIS LINE
                 flash('Login successful!', 'success')
                 return redirect(url_for('landing'))
             else:
@@ -370,40 +371,37 @@ def check_role():
 
 @app.route('/admin/dashboard')
 def admin_dashboard():
-    if 'user_id' not in session:
-        return redirect(url_for('login'))
-    
-    conn = get_db_connection()
-    cur = conn.cursor(cursor_factory=DictCursor)
+    if 'user_id' not in session or session.get('user_role') != 'admin':
+        flash('🔒 Admin access required', 'error')
+        return redirect(url_for('landing'))
     
     try:
-        # Get current user's role
-        cur.execute('SELECT role FROM users WHERE id = %s', (session['user_id'],))
-        user = cur.fetchone()
-        
-        if not user or user['role'] != 'admin':
-            flash('Admin access required', 'error')
-            return redirect(url_for('landing'))
-
-        # Get all users and employees
-        cur.execute('SELECT * FROM users')
-        users = cur.fetchall()
-        
-        cur.execute('''
-            SELECT e.*, u.username as creator 
-            FROM employees e
-            LEFT JOIN users u ON e.user_id = u.id
-        ''')
-        employees = cur.fetchall()
-        
-        return render_template('admin_dashboard.html',
-                             users=users,
-                             employees=employees,
-                             user_role=user['role'])
+        conn = get_db_connection()
+        with conn.cursor(cursor_factory=DictCursor) as cur:
+            # Get all users
+            cur.execute('SELECT * FROM users')
+            users = cur.fetchall()
+            
+            # Get employees with creator names
+            cur.execute('''
+                SELECT e.*, u.username as creator_name 
+                FROM employees e
+                LEFT JOIN users u ON e.user_id = u.id
+            ''')
+            employees = cur.fetchall()
+            
+            return render_template('admin_dashboard.html',
+                                users=users,
+                                employees=employees)
         
     except Exception as e:
-        print(f"Admin Dashboard Error: {str(e)}")
+        print(f"ADMIN DASHBOARD ERROR: {str(e)}")
+        flash('Error loading dashboard', 'error')
         return redirect(url_for('landing'))
     finally:
-        cur.close()
-        conn.close()
+        if 'conn' in locals(): conn.close()
+        
+        
+@app.route('/debug-session')
+def debug_session():
+    return dict(session)
