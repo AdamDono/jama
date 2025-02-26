@@ -368,40 +368,32 @@ def check_role():
     cur.close()
     conn.close()
     return f"Your role: {role[0] if role else 'undefined'}"
-
 @app.route('/admin/dashboard')
 def admin_dashboard():
     if 'user_id' not in session or session.get('user_role') != 'admin':
-        flash('🔒 Admin access required', 'error')
+        flash('Admin access required', 'error')
         return redirect(url_for('landing'))
     
     try:
-        conn = get_db_connection()
-        with conn.cursor(cursor_factory=DictCursor) as cur:
-            # Get all users
-            cur.execute('SELECT * FROM users')
-            users = cur.fetchall()
-            
-            # Get employees with creator names
-            cur.execute('''
-                SELECT e.*, u.username as creator_name 
-                FROM employees e
-                LEFT JOIN users u ON e.user_id = u.id
-            ''')
-            employees = cur.fetchall()
-            
-            return render_template('admin_dashboard.html',
-                                users=users,
-                                employees=employees)
-        
+        with get_db_connection() as conn:
+            with conn.cursor(cursor_factory=DictCursor) as cur:
+                # Get all users
+                cur.execute('SELECT * FROM users')
+                users = cur.fetchall()
+                
+                # Get employees with creator names
+                cur.execute('''
+                    SELECT e.*, u.username as creator 
+                    FROM employees e
+                    JOIN users u ON e.creator_id = u.id
+                ''')
+                employees = cur.fetchall()
+                
+                return render_template('admin_dashboard.html',
+                                     users=users,
+                                     employees=employees)
+    
     except Exception as e:
         print(f"ADMIN DASHBOARD ERROR: {str(e)}")
-        flash('Error loading dashboard', 'error')
+        flash('Failed to load dashboard', 'error')
         return redirect(url_for('landing'))
-    finally:
-        if 'conn' in locals(): conn.close()
-        
-        
-@app.route('/debug-session')
-def debug_session():
-    return dict(session)
