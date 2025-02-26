@@ -5,4 +5,4 @@
         <i class="bi bi-speedometer"></i> Admin Dashboard
     </a>
 </li>
-{% endif %}
+{% if session.user_role == 'admin' %}

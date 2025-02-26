@@ -333,34 +333,27 @@ def promote_user(user_id):
     cur = conn.cursor(cursor_factory=DictCursor)
     
     try:
-        # Verify current user is admin
+        # Verify admin status
         cur.execute('SELECT role FROM users WHERE id = %s', (session['user_id'],))
-        current_user = cur.fetchone()
+        admin_user = cur.fetchone()
         
-        if not current_user or current_user['role'] != 'admin':
+        if not admin_user or admin_user['role'] != 'admin':
             flash('Admin privileges required', 'error')
             return redirect(url_for('landing'))
 
-        # Promote target user
-        cur.execute('''
-            UPDATE users 
-            SET role = 'admin' 
-            WHERE id = %s
-        ''', (user_id,))
+        # Promote user
+        cur.execute("UPDATE users SET role = 'admin' WHERE id = %s", (user_id,))
         conn.commit()
-        flash('User promoted to admin', 'success')
+        flash('User promoted to admin successfully', 'success')
         
     except Exception as e:
         conn.rollback()
         flash(f'Promotion failed: {str(e)}', 'error')
-        print(f"Promotion Error: {str(e)}")  # Debug logging
-        
     finally:
         cur.close()
         conn.close()
     
     return redirect(url_for('admin_dashboard'))
-
 
 @app.route('/check-role')
 def check_role():
