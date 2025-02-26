@@ -10,6 +10,22 @@
     {% include 'navigation.html' %}
 
     <div class="container">
+        <div class="card-body">
+            <!-- Search Form -->
+            <div class="admin-search mb-4">
+                <form method="GET" action="{{ url_for('admin_dashboard') }}">
+                    <div class="input-group">
+                        <input type="text" 
+                               class="form-control" 
+                               name="search" 
+                               placeholder="Search employees by name, ID, or department"
+                               value="{{ search_term }}">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-search"></i> Search
+                        </button>
+                    </div>
+                </form>
+            </div>
         <div class="admin-section">
             <h2><i class="bi bi-people-fill"></i> User Management</h2>
             <table class="admin-table">

@@ -350,40 +350,42 @@ def promote_user(user_id):
         conn.close()
     
     return redirect(url_for('admin_dashboard'))
-
 @app.route('/admin/dashboard')
 def admin_dashboard():
-    if 'user_id' not in session:
-        return redirect(url_for('login'))
-    
-    conn = get_db_connection()
-    cur = conn.cursor(cursor_factory=DictCursor)
-    
-    try:
-        # Verify admin role
-        cur.execute('SELECT role FROM users WHERE id = %s', (session['user_id'],))
-        if cur.fetchone()['role'] != 'admin':
-            flash('Admin access required', 'error')
-            return redirect(url_for('landing'))
-
-        # Get all users and employees
-        cur.execute('SELECT * FROM users')
-        users = cur.fetchall()
-        
-        cur.execute('SELECT * FROM employees')
-        all_employees = cur.fetchall()
-        
-        return render_template('admin_dashboard.html', 
-                             users=users, 
-                             employees=all_employees)
-        
-    except Exception as e:
-        print(f"Admin dashboard error: {e}")
+    if 'user_id' not in session or session.get('user_role') != 'admin':
+        flash('Admin access required', 'error')
         return redirect(url_for('landing'))
-        
-    finally:
-        cur.close()
-        conn.close()
-        
-        
-        
+
+    search_term = request.args.get('search', '').strip()
+
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor(cursor_factory=DictCursor) as cur:
+                # Get filtered employees
+                base_query = '''
+                    SELECT e.*, u.username as creator 
+                    FROM employees e
+                    LEFT JOIN users u ON e.creator_id = u.id
+                '''
+                
+                if search_term:
+                    query = base_query + '''
+                        WHERE e.full_name ILIKE %s
+                        OR e.employee_id ILIKE %s
+                        OR e.department ILIKE %s
+                    '''
+                    pattern = f'%{search_term}%'
+                    cur.execute(query, (pattern, pattern, pattern))
+                else:
+                    cur.execute(base_query)
+
+                employees = cur.fetchall()
+
+                return render_template('admin_dashboard.html',
+                                     employees=employees,
+                                     search_term=search_term)
+
+    except Exception as e:
+        print(f"Search error: {str(e)}")
+        flash('Error loading employees', 'error')
+        return redirect(url_for('admin_dashboard'))
