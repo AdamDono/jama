@@ -28,6 +28,9 @@ DATABASE = {
 }
 
 
+
+
+
 def get_db_connection():
  
     return psycopg2.connect(**DATABASE)
@@ -320,36 +323,56 @@ def delete_employee(employee_id):
     
     return redirect(url_for('landing'))
 
-
 @app.route('/promote-user/<int:user_id>', methods=['POST'])
 def promote_user(user_id):
     if 'user_id' not in session:
         return redirect(url_for('login'))
     
     conn = get_db_connection()
-    cur = conn.cursor()
+    cur = conn.cursor(cursor_factory=DictCursor)
     
     try:
         # Verify current user is admin
         cur.execute('SELECT role FROM users WHERE id = %s', (session['user_id'],))
-        if cur.fetchone()[0] != 'admin':
+        current_user = cur.fetchone()
+        
+        if not current_user or current_user['role'] != 'admin':
             flash('Admin privileges required', 'error')
             return redirect(url_for('landing'))
 
         # Promote target user
-        cur.execute('UPDATE users SET role = "admin" WHERE id = %s', (user_id,))
+        cur.execute('''
+            UPDATE users 
+            SET role = 'admin' 
+            WHERE id = %s
+        ''', (user_id,))
         conn.commit()
         flash('User promoted to admin', 'success')
         
     except Exception as e:
         conn.rollback()
         flash(f'Promotion failed: {str(e)}', 'error')
+        print(f"Promotion Error: {str(e)}")  # Debug logging
         
     finally:
         cur.close()
         conn.close()
     
     return redirect(url_for('admin_dashboard'))
+
+
+@app.route('/check-role')
+def check_role():
+    if 'user_id' not in session:
+        return "Not logged in"
+    
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute('SELECT role FROM users WHERE id = %s', (session['user_id'],))
+    role = cur.fetchone()
+    cur.close()
+    conn.close()
+    return f"Your role: {role[0] if role else 'undefined'}"
 
 @app.route('/admin/dashboard')
 def admin_dashboard():
@@ -360,9 +383,15 @@ def admin_dashboard():
     cur = conn.cursor(cursor_factory=DictCursor)
     
     try:
-        # Verify admin role
-        cur.execute('SELECT role FROM users WHERE id = %s', (session['user_id'],))
-        if cur.fetchone()['role'] != 'admin':
+        # Verify admin role using user ID from session
+        cur.execute('''
+            SELECT role 
+            FROM users 
+            WHERE id = %s
+        ''', (session['user_id'],))
+        user = cur.fetchone()
+        
+        if not user or user['role'] != 'admin':
             flash('Admin access required', 'error')
             return redirect(url_for('landing'))
 
@@ -374,16 +403,15 @@ def admin_dashboard():
         all_employees = cur.fetchall()
         
         return render_template('admin_dashboard.html', 
-                             users=users, 
-                             employees=all_employees)
+                            users=users, 
+                            employees=all_employees)
         
     except Exception as e:
-        print(f"Admin dashboard error: {e}")
+        print(f"Admin Dashboard Error: {str(e)}")  # Debug logging
         return redirect(url_for('landing'))
         
     finally:
         cur.close()
         conn.close()
-        
         
         
