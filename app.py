@@ -389,3 +389,49 @@ def admin_dashboard():
         print(f"Search error: {str(e)}")
         flash('Error loading employees', 'error')
         return redirect(url_for('admin_dashboard'))
+    
+    # Add new routes
+@app.route('/apply_leave', methods=['GET', 'POST'])
+def apply_leave():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    
+    if request.method == 'POST':
+        try:
+            leave_type = request.form['leave_type']
+            start_date = request.form['start_date']
+            end_date = request.form['end_date']
+            comments = request.form.get('comments', '')
+            
+            document_path = None
+            if 'document' in request.files:
+                file = request.files['document']
+                if file and allowed_file(file.filename):
+                    filename = secure_filename(file.filename)
+                    file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+                    document_path = filename
+            
+            with get_db_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute('''
+                        INSERT INTO leave_applications 
+                        (user_id, leave_type, start_date, end_date, comments, document_path)
+                        VALUES (%s, %s, %s, %s, %s, %s)
+                    ''', (session['user_id'], leave_type, start_date, end_date, comments, document_path))
+                    conn.commit()
+            
+            flash('Leave application submitted!', 'success')
+            return redirect(url_for('landing'))
+        
+        except Exception as e:
+            flash('Error submitting application', 'error')
+            return redirect(url_for('apply_leave'))
+    
+    return render_template('apply_leave.html'))
+
+# Add to allowed_file function
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in {'png', 'jpg', 'jpeg', 'pdf'}
+    
+    
