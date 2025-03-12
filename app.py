@@ -236,12 +236,12 @@ def landing():
         cur.close()
         conn.close()
 
+# Add to add_employee_form route
 @app.route('/add_employee_form')
 def add_employee_form():
-    if 'user_id' not in session:
-        return redirect(url_for('login'))
+    if 'user_id' not in session or session.get('user_role') != 'admin':
+        abort(403)
     return render_template('add_employee.html')
-
 # Edit Employee
 @app.route('/edit_employee/<int:employee_id>', methods=['GET', 'POST'])
 def edit_employee(employee_id):
@@ -427,7 +427,7 @@ def apply_leave():
             flash('Error submitting application', 'error')
             return redirect(url_for('apply_leave'))
     
-    return render_template('apply_leave.html'))
+    return render_template('apply_leave.html')
 
 # Add to allowed_file function
 def allowed_file(filename):
