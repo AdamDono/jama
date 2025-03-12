@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>My Leave Applications</h2>
+    <div class="table-responsive">
+        <table class="table table-striped table-hover">
+            <thead>
+                <tr>
+                    <th>Leave Type</th>
+                    <th>Start Date</th>
+                    <th>End Date</th>
+                    <th>Status</th>
+                    <th>Comments</th>
+                    <th>Document</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for leave in leaves %}
+                <tr>
+                    <td>{{ leave['leave_type'] }}</td>
+                    <td>{{ leave['start_date'].strftime('%Y-%m-%d') }}</td>
+                    <td>{{ leave['end_date'].strftime('%Y-%m-%d') }}</td>
+                    <td>
+                        <span class="badge 
+                            {% if leave['status'] == 'Approved' %}bg-success
+                            {% elif leave['status'] == 'Rejected' %}bg-danger
+                            {% else %}bg-warning{% endif %}">
+                            {{ leave['status'] }}
+                        </span>
+                    </td>
+                    <td>{{ leave['comments'] }}</td>
+                    <td>
+                        {% if leave['document_path'] %}
+                        <a href="{{ url_for('static', filename='uploads/' + leave['document_path']) }}" target="_blank">
+                            <i class="bi bi-file-earmark"></i> View Document
+                        </a>
+                        {% else %}
+                        No Document
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" class="text-center">No leave applications found</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
