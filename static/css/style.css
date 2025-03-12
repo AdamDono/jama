@@ -359,3 +359,11 @@
   transform: translateY(-1px);
 }
 
+/* Leave Application Styles */
+.form-select {
+  max-width: 300px;
+}
+
+input[type="date"] {
+  max-width: 200px;
+}

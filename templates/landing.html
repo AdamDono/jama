@@ -24,13 +24,18 @@
     </nav>
 
     <div class="container mt-4">
-
-        
+        {% if user_role == 'admin' %}
+        <!-- Admin View -->
         <div class="d-flex justify-content-between align-items-center mb-4">
             <h2>Employee Directory</h2>
-            <a href="/add_employee_form" class="btn btn-success">
-                <i class="bi bi-person-plus"></i> Add Employee
-            </a>
+            <div>
+                <a href="/add_employee_form" class="btn btn-success">
+                    <i class="bi bi-person-plus"></i> Add Employee
+                </a>
+                <a href="/apply_leave" class="btn btn-primary ml-2">
+                    <i class="bi bi-calendar-plus"></i> Apply for Leave
+                </a>
+            </div>
         </div>
 
         <div class="table-responsive">
@@ -61,21 +66,18 @@
                                 </div>
                             {% endif %}
                         </td>
-                        
                         <td>{{ employee['full_name'] }}</td>
                         <td>{{ employee['employee_id'] }}</td>
                         <td>{{ employee['phone'] }}</td>
                         <td>{{ employee['department'] }}</td>
                         <td>{{ employee['start_date'].strftime('%Y-%m-%d') }}</td>
                         <td>
-                            <button type="button" class="btn btn-sm btn-info">  <a href="{{ url_for('edit_employee', employee_id=employee['id']) }}" class="btn btn-sm btn-warning">
+                            <a href="{{ url_for('edit_employee', employee_id=employee['id']) }}" class="btn btn-sm btn-warning">
                                 <i class="bi bi-pencil"></i> Edit
                             </a>
-                            </button>
-                        
                             <button class="btn btn-sm btn-danger" 
                                     onclick="confirmDelete({{ employee['id'] }})">
-                                <i class="bi bi-trash"></i>Delete
+                                <i class="bi bi-trash"></i> Delete
                             </button>
                         </td>
                     </tr>
@@ -87,6 +89,16 @@
                 </tbody>
             </table>
         </div>
+        {% else %}
+        <!-- Regular User View -->
+        <div class="text-center py-5">
+            <h3>Welcome, {{ session.username }}</h3>
+            <p>Use the button below to manage your leave applications</p>
+            <a href="/apply_leave" class="btn btn-primary">
+                <i class="bi bi-calendar-plus"></i> Apply for Leave
+            </a>
+        </div>
+        {% endif %}
     </div>
 
     <script>
