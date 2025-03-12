@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Apply for Leave</h2>
+    <form method="POST" enctype="multipart/form-data">
+        <div class="mb-3">
+            <label class="form-label">Leave Type</label>
+            <select class="form-select" name="leave_type" required>
+                <option value="">Select Leave Type</option>
+                <option value="annual">Annual Leave</option>
+                <option value="sick">Sick Leave</option>
+                <option value="family">Family Responsibility</option>
+            </select>
+        </div>
+
+        <div class="row mb-3">
+            <div class="col">
+                <label class="form-label">Start Date</label>
+                <input type="date" class="form-control" name="start_date" required>
+            </div>
+            <div class="col">
+                <label class="form-label">End Date</label>
+                <input type="date" class="form-control" name="end_date" required>
+            </div>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Comments</label>
+            <textarea class="form-control" name="comments" rows="3"></textarea>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Upload Document (if sick leave)</label>
+            <input type="file" class="form-control" name="document">
+        </div>
+
+        <button type="submit" class="btn btn-primary">Submit Application</button>
+    </form>
+</div>
+{% endblock %}
