@@ -206,35 +206,41 @@ def logout():
 def landing():
     if 'user_id' not in session:
         return redirect(url_for('login'))
-    
+
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=DictCursor)
-    
+
     try:
-        # Check if user is admin
+        # Fetch the user's role
         cur.execute('SELECT role FROM users WHERE id = %s', (session['user_id'],))
         user_role = cur.fetchone()['role']
 
-        # Query based on role
+        # Fetch employees based on role
         if user_role == 'admin':
             cur.execute('SELECT * FROM employees ORDER BY created_at DESC')
+            employees = cur.fetchall()
+            leaves = []  # Admins don't need leave applications here
         else:
+            cur.execute('SELECT * FROM employees WHERE user_id = %s ORDER BY created_at DESC', (session['user_id'],))
+            employees = cur.fetchall()
+
+            # Fetch the user's leave applications
             cur.execute('''
-                SELECT * FROM employees 
+                SELECT * FROM leave_applications 
                 WHERE user_id = %s 
                 ORDER BY created_at DESC
             ''', (session['user_id'],))
-            
-        employees = cur.fetchall()
-        return render_template('landing.html', employees=employees, user_role=user_role)
-        
+            leaves = cur.fetchall()
+
     except Exception as e:
         print(f"Database error: {e}")
-        return render_template('landing.html', employees=[])
-        
+        employees = []
+        leaves = []
     finally:
         cur.close()
         conn.close()
+
+    return render_template('landing.html', employees=employees, leaves=leaves, user_role=user_role)
 
 # Add to add_employee_form route
 @app.route('/add_employee_form')
