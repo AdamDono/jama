@@ -206,35 +206,41 @@ def logout():
 def landing():
     if 'user_id' not in session:
         return redirect(url_for('login'))
-    
+
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=DictCursor)
-    
+
     try:
-        # Check if user is admin
+        # Fetch the user's role
         cur.execute('SELECT role FROM users WHERE id = %s', (session['user_id'],))
         user_role = cur.fetchone()['role']
 
-        # Query based on role
+        # Fetch employees based on role
         if user_role == 'admin':
             cur.execute('SELECT * FROM employees ORDER BY created_at DESC')
+            employees = cur.fetchall()
+            leaves = []  # Admins don't need leave applications here
         else:
+            cur.execute('SELECT * FROM employees WHERE user_id = %s ORDER BY created_at DESC', (session['user_id'],))
+            employees = cur.fetchall()
+
+            # Fetch the user's leave applications
             cur.execute('''
-                SELECT * FROM employees 
+                SELECT * FROM leave_applications 
                 WHERE user_id = %s 
                 ORDER BY created_at DESC
             ''', (session['user_id'],))
-            
-        employees = cur.fetchall()
-        return render_template('landing.html', employees=employees, user_role=user_role)
-        
+            leaves = cur.fetchall()
+
     except Exception as e:
         print(f"Database error: {e}")
-        return render_template('landing.html', employees=[])
-        
+        employees = []
+        leaves = []
     finally:
         cur.close()
         conn.close()
+
+    return render_template('landing.html', employees=employees, leaves=leaves, user_role=user_role)
 
 # Add to add_employee_form route
 @app.route('/add_employee_form')
@@ -395,40 +401,52 @@ def admin_dashboard():
 def apply_leave():
     if 'user_id' not in session:
         return redirect(url_for('login'))
-    
-    if request.method == 'POST':
-        try:
-            leave_type = request.form['leave_type']
-            start_date = request.form['start_date']
-            end_date = request.form['end_date']
-            comments = request.form.get('comments', '')
-            
-            document_path = None
-            if 'document' in request.files:
-                file = request.files['document']
-                if file and allowed_file(file.filename):
-                    filename = secure_filename(file.filename)
-                    file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-                    document_path = filename
-            
-            with get_db_connection() as conn:
-                with conn.cursor() as cur:
-                    cur.execute('''
-                        INSERT INTO leave_applications 
-                        (user_id, leave_type, start_date, end_date, comments, document_path)
-                        VALUES (%s, %s, %s, %s, %s, %s)
-                    ''', (session['user_id'], leave_type, start_date, end_date, comments, document_path))
-                    conn.commit()
-            
-            flash('Leave application submitted!', 'success')
-            return redirect(url_for('landing'))
-        
-        except Exception as e:
-            flash('Error submitting application', 'error')
-            return redirect(url_for('apply_leave'))
-    
-    return render_template('apply_leave.html')
 
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=DictCursor)
+
+    if request.method == 'POST':
+        leave_type = request.form['leave_type']
+        start_date = request.form['start_date']
+        end_date = request.form['end_date']
+        comments = request.form.get('comments', '')
+        document_path = None
+
+        if 'document' in request.files:
+            file = request.files['document']
+            if file and allowed_file(file.filename):
+                filename = secure_filename(file.filename)
+                file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+                document_path = filename
+
+        try:
+            cur.execute('''
+                INSERT INTO leave_applications 
+                (user_id, leave_type, start_date, end_date, comments, document_path)
+                VALUES (%s, %s, %s, %s, %s, %s)
+            ''', (session['user_id'], leave_type, start_date, end_date, comments, document_path))
+            conn.commit()
+            flash('Leave application submitted successfully!', 'success')
+        except Exception as e:
+            conn.rollback()
+            flash(f'Error submitting leave application: {str(e)}', 'error')
+
+    # Fetch the user's leave applications
+    try:
+        cur.execute('''
+            SELECT * FROM leave_applications 
+            WHERE user_id = %s 
+            ORDER BY created_at DESC
+        ''', (session['user_id'],))
+        leaves = cur.fetchall()
+    except Exception as e:
+        print(f"Database error: {e}")
+        leaves = []
+    finally:
+        cur.close()
+        conn.close()
+
+    return render_template('apply_leave.html', leaves=leaves)
 # Add to allowed_file function
 def allowed_file(filename):
     return '.' in filename and \
