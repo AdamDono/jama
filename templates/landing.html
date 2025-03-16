@@ -218,20 +218,29 @@
 
 <script>
     function cancelLeave(leaveId) {
+        console.log(`Canceling leave ID: ${leaveId} for user ID: {{ session.user_id }}`); // Debugging
         if (confirm("Are you sure you want to cancel this leave application?")) {
-            fetch(`/cancel_leave/${leaveId}`, {
+            fetch(`/landing/cancel_leave/${leaveId}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
             })
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) {
+                    // Log the raw response text for debugging
+                    return response.text().then(text => {
+                        throw new Error(`Server returned: ${text}`);
+                    });
+                }
+                return response.json();
+            })
             .then(data => {
                 if (data.success) {
                     alert("Leave application canceled successfully!");
                     window.location.reload(); // Refresh the page to update the table
                 } else {
-                    alert("Failed to cancel leave application.");
+                    alert(`Failed to cancel leave application: ${data.message}`);
                 }
             })
             .catch(error => {
