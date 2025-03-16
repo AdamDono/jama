@@ -5,6 +5,7 @@ import os
 from werkzeug.utils import secure_filename  # <-- Add this
 from psycopg2.extras import DictCursor 
 import psycopg2.extras  # Add this line
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
@@ -451,5 +452,46 @@ def apply_leave():
 def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in {'png', 'jpg', 'jpeg', 'pdf'}
-    
-    
+           
+           
+@app.route('/landing/cancel_leave/<int:leave_id>', methods=['POST'])
+def cancel_leave(leave_id):
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    try:
+        # Debugging: Log the leave_id and user_id
+        print(f"Attempting to cancel leave ID: {leave_id} for user ID: {session['user_id']}")
+
+        # Check if the leave application belongs to the logged-in user and is pending
+        cur.execute('''
+            SELECT * FROM leave_applications 
+            WHERE id = %s AND user_id = %s AND status = 'pending'
+        ''', (leave_id, session['user_id']))
+        leave = cur.fetchone()
+
+        if not leave:
+            print(f"Leave application not found or cannot be canceled. Leave ID: {leave_id}, User ID: {session['user_id']}")
+            return jsonify({'success': False, 'message': 'Leave application not found or cannot be canceled'}), 404
+
+        # Debugging: Log the leave application details
+        print(f"Leave application found: {leave}")
+
+        # Delete the leave application
+        cur.execute('DELETE FROM leave_applications WHERE id = %s', (leave_id,))
+        conn.commit()
+
+        print("Leave application canceled successfully")
+        return jsonify({'success': True, 'message': 'Leave application canceled successfully'})
+
+    except Exception as e:
+        conn.rollback()
+        print(f"Error canceling leave application: {str(e)}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+    finally:
+        cur.close()
+        conn.close()

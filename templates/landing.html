@@ -99,8 +99,8 @@
                 <i class="bi bi-calendar-plus"></i> Apply for Leave
             </a>
         </div>
-
-        <!-- Leave Applications Table -->
+<!--
+ 
         <div class="mt-5">
             <h3>My Leave Applications</h3>
             <div class="table-responsive">
@@ -151,6 +151,105 @@
         </div>
         {% endif %}
     </div>
+-->
+<!-- Leave Applications Table -->
+<div class="mt-5">
+    <h3>My Leave Applications</h3>
+    <div class="table-responsive">
+        <table class="table table-striped table-hover">
+            <thead>
+                <tr>
+                    <th>Leave Type</th>
+                    <th>Start Date</th>
+                    <th>End Date</th>
+                    <th>Status</th>
+                    <th>Date Applied</th>
+                    <th>Comments</th>
+                    <th>Document</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for leave in leaves %}
+                <tr>
+                    <td>{{ leave['leave_type'] }}</td>
+                    <td>{{ leave['start_date'].strftime('%Y-%m-%d') }}</td>
+                    <td>{{ leave['end_date'].strftime('%Y-%m-%d') }}</td>
+                    <td>
+                        <span class="badge 
+                            {% if leave['status'] == 'Approved' %}bg-success
+                            {% elif leave['status'] == 'Rejected' %}bg-danger
+                            {% else %}bg-warning{% endif %}">
+                            {{ leave['status'] }}
+                        </span>
+                    </td>
+                    <td>{{ leave['created_at'].strftime('%Y-%m-%d %H:%M') }}</td>
+                    <td>{{ leave['comments'] }}</td>
+                    <td>
+                        {% if leave['document_path'] %}
+                        <a href="{{ url_for('static', filename='uploads/' + leave['document_path']) }}" target="_blank">
+                            <i class="bi bi-file-earmark"></i> View Document
+                        </a>
+                        {% else %}
+                        No Document
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if leave['status'].lower() == 'pending' %}
+                        <button class="btn btn-sm btn-danger" 
+                                onclick="cancelLeave({{ leave['id'] }})">
+                            <i class="bi bi-x-circle"></i> Cancel
+                        </button>
+                        {% else %}
+                        <span>Cannot cancel</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="8" class="text-center">No leave applications found</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+
+<script>
+    function cancelLeave(leaveId) {
+        console.log(`Canceling leave ID: ${leaveId} for user ID: {{ session.user_id }}`); // Debugging
+        if (confirm("Are you sure you want to cancel this leave application?")) {
+            fetch(`/landing/cancel_leave/${leaveId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            })
+            .then(response => {
+                if (!response.ok) {
+                    // Log the raw response text for debugging
+                    return response.text().then(text => {
+                        throw new Error(`Server returned: ${text}`);
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    alert("Leave application canceled successfully!");
+                    window.location.reload(); // Refresh the page to update the table
+                } else {
+                    alert(`Failed to cancel leave application: ${data.message}`);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert("An error occurred while canceling the leave application.");
+            });
+        }
+    }
+    </script>
 
     <script>
     function confirmDelete(employeeId) {
