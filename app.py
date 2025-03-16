@@ -452,4 +452,35 @@ def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in {'png', 'jpg', 'jpeg', 'pdf'}
     
-    
+@app.route('/cancel_leave/<int:leave_id>', methods=['POST'])
+def cancel_leave(leave_id):
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    try:
+        # Check if the leave application belongs to the logged-in user and is pending
+        cur.execute('''
+            SELECT * FROM leave_applications 
+            WHERE id = %s AND user_id = %s AND status = 'Pending'
+        ''', (leave_id, session['user_id']))
+        leave = cur.fetchone()
+
+        if not leave:
+            return jsonify({'success': False, 'message': 'Leave application not found or cannot be canceled'}), 404
+
+        # Delete the leave application
+        cur.execute('DELETE FROM leave_applications WHERE id = %s', (leave_id,))
+        conn.commit()
+
+        return jsonify({'success': True, 'message': 'Leave application canceled successfully'})
+
+    except Exception as e:
+        conn.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+    finally:
+        cur.close()
+        conn.close()
