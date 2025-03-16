@@ -215,7 +215,54 @@
     </div>
 </div>
 
-
+<!-- Leave Balance Section -->
+<div class="mt-5">
+    <h3>My Leave Balance</h3>
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Annual Leave</h5>
+                    <p class="card-text">
+                        {% if leave_balance %}
+                            {{ leave_balance['annual_leave'] }} days remaining
+                        {% else %}
+                            15 days remaining (default)
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Sick Leave</h5>
+                    <p class="card-text">
+                        {% if leave_balance %}
+                            {{ leave_balance['sick_leave'] }} days remaining
+                        {% else %}
+                            30 days remaining (default)
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Family Leave</h5>
+                    <p class="card-text">
+                        {% if leave_balance %}
+                            {{ leave_balance['family_leave'] }} days remaining
+                        {% else %}
+                            3 days remaining (default)
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 <script>
     function cancelLeave(leaveId) {
         console.log(`Canceling leave ID: ${leaveId} for user ID: {{ session.user_id }}`); // Debugging

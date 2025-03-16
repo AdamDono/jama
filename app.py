@@ -77,37 +77,45 @@ def signup():
         username = request.form['username']
         email = request.form['email']
         password = request.form['password']
-        
+
         conn = get_db_connection()
-        cur = conn.cursor(cursor_factory=DictCursor)  # Add this
-        
+        cur = conn.cursor(cursor_factory=DictCursor)
+
         try:
+            # Check if username or email already exists
             cur.execute('SELECT * FROM users WHERE username = %s OR email = %s', (username, email))
             if cur.fetchone():
                 flash('Username or email already exists!', 'error')
                 return redirect(url_for('signup'))
-            
+
+            # Insert new user
             hashed_password = generate_password_hash(password)
-            
-            # Corrected line below
-            cur.execute(
-                'INSERT INTO users (username, email, password) VALUES (%s, %s, %s)',
-                (username, email, hashed_password)
-            )  # This closing parenthesis was missing
+            cur.execute('''
+                INSERT INTO users (username, email, password)
+                VALUES (%s, %s, %s)
+                RETURNING id
+            ''', (username, email, hashed_password))
+            user_id = cur.fetchone()['id']
+
+            # Initialize leave balance for the new user
+            cur.execute('''
+                INSERT INTO leave_balance (user_id, annual_leave, sick_leave, family_leave)
+                VALUES (%s, 15, 30, 3)
+            ''', (user_id,))
             conn.commit()
-            
+
             flash('Registration successful! Please login.', 'success')
             return redirect(url_for('login'))
-            
+
         except Exception as e:
             conn.rollback()
             flash('Registration failed!', 'error')
             return redirect(url_for('signup'))
-            
+
         finally:
             cur.close()
             conn.close()
-            
+
     return render_template('signup.html')
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -211,6 +219,11 @@ def landing():
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=DictCursor)
 
+    # Initialize variables
+    employees = []
+    leaves = []
+    leave_balance = None
+
     try:
         # Fetch the user's role
         cur.execute('SELECT role FROM users WHERE id = %s', (session['user_id'],))
@@ -220,7 +233,6 @@ def landing():
         if user_role == 'admin':
             cur.execute('SELECT * FROM employees ORDER BY created_at DESC')
             employees = cur.fetchall()
-            leaves = []  # Admins don't need leave applications here
         else:
             cur.execute('SELECT * FROM employees WHERE user_id = %s ORDER BY created_at DESC', (session['user_id'],))
             employees = cur.fetchall()
@@ -233,15 +245,20 @@ def landing():
             ''', (session['user_id'],))
             leaves = cur.fetchall()
 
+        # Fetch the user's leave balance
+        cur.execute('SELECT * FROM leave_balance WHERE user_id = %s', (session['user_id'],))
+        leave_balance = cur.fetchone()
+
+        if not leave_balance:
+            print(f"Leave balance not found for user ID: {session['user_id']}")  # Debugging
+
     except Exception as e:
         print(f"Database error: {e}")
-        employees = []
-        leaves = []
     finally:
         cur.close()
         conn.close()
 
-    return render_template('landing.html', employees=employees, leaves=leaves, user_role=user_role)
+    return render_template('landing.html', employees=employees, leaves=leaves, leave_balance=leave_balance, user_role=user_role)
 
 # Add to add_employee_form route
 @app.route('/add_employee_form')
@@ -421,39 +438,75 @@ def apply_leave():
                 document_path = filename
 
         try:
+            # Calculate the number of leave days
+            from datetime import datetime
+            start = datetime.strptime(start_date, '%Y-%m-%d')
+            end = datetime.strptime(end_date, '%Y-%m-%d')
+            leave_days = (end - start).days + 1
+
+            # Fetch the user's leave balance
+            cur.execute('SELECT * FROM leave_balance WHERE user_id = %s', (session['user_id'],))
+            leave_balance = cur.fetchone()
+
+            if not leave_balance:
+                flash('Leave balance not found! Please contact support.', 'error')
+                return redirect(url_for('apply_leave'))
+
+            # Check if the user has enough leave balance
+            if leave_type == 'annual' and leave_balance['annual_leave'] < leave_days:
+                flash('Not enough annual leave balance!', 'error')
+                return redirect(url_for('apply_leave'))
+            elif leave_type == 'sick' and leave_balance['sick_leave'] < leave_days:
+                flash('Not enough sick leave balance!', 'error')
+                return redirect(url_for('apply_leave'))
+            elif leave_type == 'family' and leave_balance['family_leave'] < leave_days:
+                flash('Not enough family leave balance!', 'error')
+                return redirect(url_for('apply_leave'))
+
+            # Insert the leave application
             cur.execute('''
                 INSERT INTO leave_applications 
                 (user_id, leave_type, start_date, end_date, comments, document_path)
                 VALUES (%s, %s, %s, %s, %s, %s)
             ''', (session['user_id'], leave_type, start_date, end_date, comments, document_path))
+
+            # Deduct leave days from the user's balance
+            if leave_type == 'annual':
+                cur.execute('''
+                    UPDATE leave_balance 
+                    SET annual_leave = annual_leave - %s 
+                    WHERE user_id = %s
+                ''', (leave_days, session['user_id']))
+            elif leave_type == 'sick':
+                cur.execute('''
+                    UPDATE leave_balance 
+                    SET sick_leave = sick_leave - %s 
+                    WHERE user_id = %s
+                ''', (leave_days, session['user_id']))
+            elif leave_type == 'family':
+                cur.execute('''
+                    UPDATE leave_balance 
+                    SET family_leave = family_leave - %s 
+                    WHERE user_id = %s
+                ''', (leave_days, session['user_id']))
+
             conn.commit()
             flash('Leave application submitted successfully!', 'success')
+            return redirect(url_for('landing'))
+
         except Exception as e:
             conn.rollback()
+            print(f"Error submitting leave application: {str(e)}")  # Debugging
             flash(f'Error submitting leave application: {str(e)}', 'error')
+            return redirect(url_for('apply_leave'))
 
-    # Fetch the user's leave applications
-    try:
-        cur.execute('''
-            SELECT * FROM leave_applications 
-            WHERE user_id = %s 
-            ORDER BY created_at DESC
-        ''', (session['user_id'],))
-        leaves = cur.fetchall()
-    except Exception as e:
-        print(f"Database error: {e}")
-        leaves = []
-    finally:
-        cur.close()
-        conn.close()
+        finally:
+            cur.close()
+            conn.close()
 
-    return render_template('apply_leave.html', leaves=leaves)
-# Add to allowed_file function
-def allowed_file(filename):
-    return '.' in filename and \
-           filename.rsplit('.', 1)[1].lower() in {'png', 'jpg', 'jpeg', 'pdf'}
-           
-           
+    return render_template('apply_leave.html')
+
+
 @app.route('/landing/cancel_leave/<int:leave_id>', methods=['POST'])
 def cancel_leave(leave_id):
     if 'user_id' not in session:
