@@ -215,54 +215,86 @@
     </div>
 </div>
 
-<!-- Leave Balance Section -->
-<div class="mt-5">
-    <h3>My Leave Balance</h3>
-    <div class="row">
-        <div class="col-md-4">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">Annual Leave</h5>
-                    <p class="card-text">
-                        {% if leave_balance %}
-                            {{ leave_balance['annual_leave'] }} days remaining
-                        {% else %}
-                            15 days remaining (default)
-                        {% endif %}
-                    </p>
+
+  <!-- Leave Balance Dashboard Widget -->
+  <div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card shadow-sm border-primary">
+            <div class="card-header bg-primary text-white">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-sun"></i> Annual Leave
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="d-flex justify-content-between mb-2">
+                    <span>Used: {{ 15 - leave_balance.annual_leave }} days</span>
+                    <span>Remaining: {{ leave_balance.annual_leave }} days</span>
+                </div>
+                <div class="progress" style="height: 20px;">
+                    <div class="progress-bar bg-success" 
+                         style="width: {{ (leave_balance.annual_leave/15)*100 }}%"
+                         role="progressbar"
+                         aria-valuenow="{{ leave_balance.annual_leave }}"
+                         aria-valuemin="0" 
+                         aria-valuemax="15">
+                    </div>
                 </div>
             </div>
         </div>
-        <div class="col-md-4">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">Sick Leave</h5>
-                    <p class="card-text">
-                        {% if leave_balance %}
-                            {{ leave_balance['sick_leave'] }} days remaining
-                        {% else %}
-                            30 days remaining (default)
-                        {% endif %}
-                    </p>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card shadow-sm border-warning">
+            <div class="card-header bg-warning text-dark">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-heart-pulse"></i> Sick Leave
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="d-flex justify-content-between mb-2">
+                    <span>Used: {{ 30 - leave_balance.sick_leave }} days</span>
+                    <span>Remaining: {{ leave_balance.sick_leave }} days</span>
+                </div>
+                <div class="progress" style="height: 20px;">
+                    <div class="progress-bar bg-warning" 
+                         style="width: {{ (leave_balance.sick_leave/30)*100 }}%"
+                         role="progressbar"
+                         aria-valuenow="{{ leave_balance.sick_leave }}"
+                         aria-valuemin="0" 
+                         aria-valuemax="30">
+                    </div>
                 </div>
             </div>
         </div>
-        <div class="col-md-4">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">Family Leave</h5>
-                    <p class="card-text">
-                        {% if leave_balance %}
-                            {{ leave_balance['family_leave'] }} days remaining
-                        {% else %}
-                            3 days remaining (default)
-                        {% endif %}
-                    </p>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card shadow-sm border-info">
+            <div class="card-header bg-info text-white">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-people-fill"></i> Family Leave
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="d-flex justify-content-between mb-2">
+                    <span>Used: {{ 3 - leave_balance.family_leave }} days</span>
+                    <span>Remaining: {{ leave_balance.family_leave }} days</span>
+                </div>
+                <div class="progress" style="height: 20px;">
+                    <div class="progress-bar bg-info" 
+                         style="width: {{ (leave_balance.family_leave/3)*100 }}%"
+                         role="progressbar"
+                         aria-valuenow="{{ leave_balance.family_leave }}"
+                         aria-valuemin="0" 
+                         aria-valuemax="3">
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+
 <script>
     function cancelLeave(leaveId) {
         console.log(`Canceling leave ID: ${leaveId} for user ID: {{ session.user_id }}`); // Debugging
@@ -315,5 +347,28 @@
         {% endif %}
     {% endwith %}
     </script>
+
+<style>
+    /* Custom Styles */
+    .progress-bar {
+        transition: width 0.6s ease;
+    }
+    .card {
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    .card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    }
+    .table-hover tbody tr:hover {
+        background-color: rgba(0, 0, 0, 0.02);
+    }
+    @media (max-width: 768px) {
+        .col-md-4 {
+            margin-bottom: 1.5rem;
+        }
+    }
+</style>
 </body>
+
 </html>
