@@ -347,5 +347,28 @@
         {% endif %}
     {% endwith %}
     </script>
+
+<style>
+    /* Custom Styles */
+    .progress-bar {
+        transition: width 0.6s ease;
+    }
+    .card {
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    .card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    }
+    .table-hover tbody tr:hover {
+        background-color: rgba(0, 0, 0, 0.02);
+    }
+    @media (max-width: 768px) {
+        .col-md-4 {
+            margin-bottom: 1.5rem;
+        }
+    }
+</style>
 </body>
+
 </html>

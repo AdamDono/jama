@@ -210,7 +210,6 @@ def logout():
     session.clear()
     return redirect(url_for('login'))
 
-
 @app.route('/landing')
 def landing():
     if 'user_id' not in session:
@@ -219,47 +218,41 @@ def landing():
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=DictCursor)
 
-    # Initialize variables
-    employees = []
-    leaves = []
-    leave_balance = None
-
     try:
-        # Fetch the user's role
-        cur.execute('SELECT role FROM users WHERE id = %s', (session['user_id'],))
-        user_role = cur.fetchone()['role']
+        # Get leave balance - ensure this query matches your database schema
+        cur.execute('''
+            SELECT annual_leave, sick_leave, family_leave 
+            FROM leave_balance 
+            WHERE user_id = %s
+        ''', (session['user_id'],))
+        leave_balance = cur.fetchone() or {
+            'annual_leave': 15,  # Default values if not found
+            'sick_leave': 30,
+            'family_leave': 3
+        }
 
-        # Fetch employees based on role
-        if user_role == 'admin':
-            cur.execute('SELECT * FROM employees ORDER BY created_at DESC')
-            employees = cur.fetchall()
-        else:
-            cur.execute('SELECT * FROM employees WHERE user_id = %s ORDER BY created_at DESC', (session['user_id'],))
-            employees = cur.fetchall()
+        # Get leave applications
+        cur.execute('''
+            SELECT * FROM leave_applications 
+            WHERE user_id = %s 
+            ORDER BY start_date DESC
+        ''', (session['user_id'],))
+        leaves = cur.fetchall()
 
-            # Fetch the user's leave applications
-            cur.execute('''
-                SELECT * FROM leave_applications 
-                WHERE user_id = %s 
-                ORDER BY created_at DESC
-            ''', (session['user_id'],))
-            leaves = cur.fetchall()
-
-        # Fetch the user's leave balance
-        cur.execute('SELECT * FROM leave_balance WHERE user_id = %s', (session['user_id'],))
-        leave_balance = cur.fetchone()
-
-        if not leave_balance:
-            print(f"Leave balance not found for user ID: {session['user_id']}")  # Debugging
+        return render_template('landing.html',
+            leave_balance=leave_balance,
+            leaves=leaves,
+            user_role=session.get('role', 'employee')
+        )
 
     except Exception as e:
         print(f"Database error: {e}")
+        flash('Error loading dashboard', 'error')
+        return redirect(url_for('login'))
+        
     finally:
         cur.close()
         conn.close()
-
-    return render_template('landing.html', employees=employees, leaves=leaves, leave_balance=leave_balance, user_role=user_role)
-
 # Add to add_employee_form route
 @app.route('/add_employee_form')
 def add_employee_form():
