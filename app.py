@@ -430,6 +430,7 @@ def apply_leave():
         comments = request.form.get('comments', '')
         document_path = None
 
+        # Handle file upload (keep existing)
         if 'document' in request.files:
             file = request.files['document']
             if file and allowed_file(file.filename):
@@ -438,66 +439,45 @@ def apply_leave():
                 document_path = filename
 
         try:
-            # Calculate the number of leave days
+            # Calculate leave days (keep existing)
             from datetime import datetime
             start = datetime.strptime(start_date, '%Y-%m-%d')
             end = datetime.strptime(end_date, '%Y-%m-%d')
             leave_days = (end - start).days + 1
 
-            # Fetch the user's leave balance
-            cur.execute('SELECT * FROM leave_balance WHERE user_id = %s', (session['user_id'],))
-            leave_balance = cur.fetchone()
+            # ===== NEW VALIDATION =====
+            # Check current balance
+            cur.execute(f'SELECT {leave_type}_leave FROM leave_balance WHERE user_id = %s', 
+                       (session['user_id'],))
+            current_balance = cur.fetchone()[f'{leave_type}_leave']
 
-            if not leave_balance:
-                flash('Leave balance not found! Please contact support.', 'error')
-                return redirect(url_for('apply_leave'))
-
-            # Check if the user has enough leave balance
-            if leave_type == 'annual' and leave_balance['annual_leave'] < leave_days:
-                flash('Not enough annual leave balance!', 'error')
-                return redirect(url_for('apply_leave'))
-            elif leave_type == 'sick' and leave_balance['sick_leave'] < leave_days:
-                flash('Not enough sick leave balance!', 'error')
-                return redirect(url_for('apply_leave'))
-            elif leave_type == 'family' and leave_balance['family_leave'] < leave_days:
-                flash('Not enough family leave balance!', 'error')
+            # Prevent negative balances
+            if leave_days > current_balance:
+                flash(f'Not enough {leave_type} leave! Available: {current_balance} days', 'error')
                 return redirect(url_for('apply_leave'))
 
-            # Insert the leave application
+            # Update with zero floor
+            cur.execute(f'''
+                UPDATE leave_balance 
+                SET {leave_type}_leave = GREATEST(0, {leave_type}_leave - %s)
+                WHERE user_id = %s
+            ''', (leave_days, session['user_id']))
+            # ===== END NEW CODE =====
+
+            # Record application (keep existing)
             cur.execute('''
                 INSERT INTO leave_applications 
                 (user_id, leave_type, start_date, end_date, comments, document_path)
                 VALUES (%s, %s, %s, %s, %s, %s)
             ''', (session['user_id'], leave_type, start_date, end_date, comments, document_path))
 
-            # Deduct leave days from the user's balance
-            if leave_type == 'annual':
-                cur.execute('''
-                    UPDATE leave_balance 
-                    SET annual_leave = annual_leave - %s 
-                    WHERE user_id = %s
-                ''', (leave_days, session['user_id']))
-            elif leave_type == 'sick':
-                cur.execute('''
-                    UPDATE leave_balance 
-                    SET sick_leave = sick_leave - %s 
-                    WHERE user_id = %s
-                ''', (leave_days, session['user_id']))
-            elif leave_type == 'family':
-                cur.execute('''
-                    UPDATE leave_balance 
-                    SET family_leave = family_leave - %s 
-                    WHERE user_id = %s
-                ''', (leave_days, session['user_id']))
-
             conn.commit()
-            flash('Leave application submitted successfully!', 'success')
+            flash('Leave applied successfully!', 'success')
             return redirect(url_for('landing'))
 
         except Exception as e:
             conn.rollback()
-            print(f"Error submitting leave application: {str(e)}")  # Debugging
-            flash(f'Error submitting leave application: {str(e)}', 'error')
+            flash(f'Error: {str(e)}', 'error')
             return redirect(url_for('apply_leave'))
 
         finally:
@@ -505,8 +485,6 @@ def apply_leave():
             conn.close()
 
     return render_template('apply_leave.html')
-
-
 @app.route('/landing/cancel_leave/<int:leave_id>', methods=['POST'])
 def cancel_leave(leave_id):
     if 'user_id' not in session:
