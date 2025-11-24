@@ -6,11 +6,11 @@
     <form method="POST" enctype="multipart/form-data">
         <div class="mb-3">
             <label class="form-label">Leave Type</label>
-            <select class="form-select" name="leave_type" required>
-                <option value="">Select Leave Type</option>
+            <select class="form-control" id="leave_type" name="leave_type" required>
                 <option value="annual">Annual Leave</option>
                 <option value="sick">Sick Leave</option>
-                <option value="family">Family Responsibility</option>
+                <option value="family">Family Responsibility Leave</option>
+                <option value="unpaid">Unpaid Leave</option>
             </select>
         </div>
 
@@ -70,7 +70,8 @@
                         <td>{{ leave['comments'] }}</td>
                         <td>
                             {% if leave['document_path'] %}
-                            <a href="{{ url_for('static', filename='uploads/' + leave['document_path']) }}" target="_blank">
+                            <a href="{{ url_for('static', filename='uploads/' + leave['document_path']) }}"
+                                target="_blank">
                                 <i class="bi bi-file-earmark"></i> View Document
                             </a>
                             {% else %}

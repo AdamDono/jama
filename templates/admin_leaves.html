@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-calendar-check"></i> Manage Leave Applications</h2>
+        <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Back to Dashboard
+        </a>
+    </div>
+
+    <div class="admin-section">
+        {% if pending_leaves %}
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>Employee</th>
+                    <th>Type</th>
+                    <th>Dates</th>
+                    <th>Days</th>
+                    <th>Reason</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for leave in pending_leaves %}
+                <tr>
+                    <td>{{ leave['full_name'] }}</td>
+                    <td>{{ leave['leave_type']|capitalize }}</td>
+                    <td>{{ leave['start_date'] }} to {{ leave['end_date'] }}</td>
+                    <td>
+                        {% if leave['days'] %}
+                        {{ leave['days'] }}
+                        {% else %}
+                        {{ (leave['end_date'] - leave['start_date']).days + 1 }} (Calc)
+                        {% endif %}
+                    </td>
+                    <td>{{ leave['comments'] }}</td>
+                    <td>
+                        <div class="action-buttons">
+                            <form action="{{ url_for('approve_leave', leave_id=leave['id']) }}" method="POST"
+                                style="display:inline;">
+                                <button type="submit" class="btn btn-sm btn-success">
+                                    <i class="bi bi-check-circle"></i> Approve
+                                </button>
+                            </form>
+                            <form action="{{ url_for('reject_leave', leave_id=leave['id']) }}" method="POST"
+                                style="display:inline;">
+                                <button type="submit" class="btn btn-sm btn-danger">
+                                    <i class="bi bi-x-circle"></i> Reject
+                                </button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle"></i> No pending leave applications found.
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

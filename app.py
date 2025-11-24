@@ -19,13 +19,13 @@ def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-# Database configuration
+
 DATABASE = {
     'dbname': 'jama',
     'user': 'postgres',
     'password': 'Fliph106',
     'host': 'localhost',
-     'port': '5433',  # Or correct port
+     'port': '5433',  
 }
 
 
@@ -33,7 +33,7 @@ def get_db_connection():
  
     return psycopg2.connect(**DATABASE)
 
-# Create users table if it does not exist
+
 conn = get_db_connection()
 cur = conn.cursor()
 cur.execute('''
@@ -49,8 +49,6 @@ conn.commit()
 cur.close()
 conn.close()
 
-
-# Create employees table
 with app.app_context():
     conn = get_db_connection()
     cur = conn.cursor()
@@ -134,6 +132,7 @@ def login():
             
                 session['user_id'] = user['id']
                 session['username'] = user['username']
+                session['user_role'] = user['role']
                 flash('Login successful!', 'success')
                 return redirect(url_for('landing'))
             else:
@@ -413,7 +412,100 @@ def admin_dashboard():
         print(f"Search error: {str(e)}")
         flash('Error loading employees', 'error')
         return redirect(url_for('admin_dashboard'))
-    
+
+@app.route('/admin/leaves')
+def admin_leaves():
+    if 'user_id' not in session or session.get('user_role') != 'admin':
+        flash('Admin access required', 'error')
+        return redirect(url_for('landing'))
+
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor(cursor_factory=DictCursor) as cur:
+                # Fetch pending leaves using robust LEFT JOIN
+                cur.execute('''
+                    SELECT l.*, COALESCE(e.full_name, u.username) as full_name
+                    FROM leave_applications l
+                    LEFT JOIN employees e ON l.user_id = e.user_id
+                    JOIN users u ON l.user_id = u.id
+                    WHERE l.status = 'pending'
+                    ORDER BY l.created_at ASC
+                ''')
+                pending_leaves = cur.fetchall()
+                
+                return render_template('admin_leaves.html', pending_leaves=pending_leaves)
+    except Exception as e:
+        print(f"Error loading leaves: {str(e)}")
+        flash('Error loading leave applications', 'error')
+        return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin/approve_leave/<int:leave_id>', methods=['POST'])
+def approve_leave(leave_id):
+    if 'user_id' not in session or session.get('user_role') != 'admin':
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 403
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    try:
+        cur.execute("UPDATE leave_applications SET status = 'Approved' WHERE id = %s", (leave_id,))
+        conn.commit()
+        flash('Leave approved successfully', 'success')
+    except Exception as e:
+        conn.rollback()
+        flash(f'Error approving leave: {str(e)}', 'error')
+    finally:
+        cur.close()
+        conn.close()
+
+    return redirect(url_for('admin_leaves'))
+
+@app.route('/admin/reject_leave/<int:leave_id>', methods=['POST'])
+def reject_leave(leave_id):
+    if 'user_id' not in session or session.get('user_role') != 'admin':
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 403
+
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=DictCursor)
+
+    try:
+        # Get leave details to refund balance
+        cur.execute("SELECT * FROM leave_applications WHERE id = %s", (leave_id,))
+        leave = cur.fetchone()
+        
+        if not leave:
+            flash('Leave application not found', 'error')
+            return redirect(url_for('admin_dashboard'))
+
+        if leave['status'] != 'pending':
+             flash('Can only reject pending leaves', 'error')
+             return redirect(url_for('admin_dashboard'))
+
+        # Calculate days to refund
+        leave_days = (leave['end_date'] - leave['start_date']).days + 1
+        leave_type = leave['leave_type']
+
+        # Refund balance
+        cur.execute(f'''
+            UPDATE leave_balance 
+            SET {leave_type}_leave = {leave_type}_leave + %s
+            WHERE user_id = %s
+        ''', (leave_days, leave['user_id']))
+
+        # Update status
+        cur.execute("UPDATE leave_applications SET status = 'Rejected' WHERE id = %s", (leave_id,))
+        
+        conn.commit()
+        flash('Leave rejected and balance refunded', 'success')
+
+    except Exception as e:
+        conn.rollback()
+        flash(f'Error rejecting leave: {str(e)}', 'error')
+    finally:
+        cur.close()
+        conn.close()
+
+    return redirect(url_for('admin_leaves'))
     # Add new routes
 @app.route('/apply_leave', methods=['GET', 'POST'])
 def apply_leave():
@@ -440,36 +532,49 @@ def apply_leave():
 
         try:
             # Calculate leave days (keep existing)
-            from datetime import datetime
+            from datetime import datetime, timedelta
             start = datetime.strptime(start_date, '%Y-%m-%d')
             end = datetime.strptime(end_date, '%Y-%m-%d')
-            leave_days = (end - start).days + 1
-
-            # ===== NEW VALIDATION =====
-            # Check current balance
-            cur.execute(f'SELECT {leave_type}_leave FROM leave_balance WHERE user_id = %s', 
-                       (session['user_id'],))
-            current_balance = cur.fetchone()[f'{leave_type}_leave']
-
-            # Prevent negative balances
-            if leave_days > current_balance:
-                flash(f'Not enough {leave_type} leave! Available: {current_balance} days', 'error')
+            
+            # Validation: Check if start or end date is weekend
+            if start.weekday() >= 5 or end.weekday() >= 5:
+                flash('Leave cannot start or end on a weekend!', 'error')
                 return redirect(url_for('apply_leave'))
 
-            # Update with zero floor
-            cur.execute(f'''
-                UPDATE leave_balance 
-                SET {leave_type}_leave = GREATEST(0, {leave_type}_leave - %s)
-                WHERE user_id = %s
-            ''', (leave_days, session['user_id']))
+            # Calculate working days
+            leave_days = 0
+            current_day = start
+            while current_day <= end:
+                if current_day.weekday() < 5: # 0-4 are Mon-Fri
+                    leave_days += 1
+                current_day += timedelta(days=1)
+            
+            if leave_days == 0:
+                flash('No working days selected!', 'error')
+                return redirect(url_for('apply_leave'))
+
+            # ===== NEW VALIDATION =====
+            if leave_type == 'unpaid':
+                 cur.execute(f'''
+                    UPDATE leave_balance 
+                    SET unpaid_leave = unpaid_leave + %s
+                    WHERE user_id = %s
+                ''', (leave_days, session['user_id']))
+            else:
+                # Update with NO floor (allow negative)
+                cur.execute(f'''
+                    UPDATE leave_balance 
+                    SET {leave_type}_leave = {leave_type}_leave - %s
+                    WHERE user_id = %s
+                ''', (leave_days, session['user_id']))
             # ===== END NEW CODE =====
 
             # Record application (keep existing)
             cur.execute('''
                 INSERT INTO leave_applications 
-                (user_id, leave_type, start_date, end_date, comments, document_path)
-                VALUES (%s, %s, %s, %s, %s, %s)
-            ''', (session['user_id'], leave_type, start_date, end_date, comments, document_path))
+                (user_id, leave_type, start_date, end_date, comments, document_path, days)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+            ''', (session['user_id'], leave_type, start_date, end_date, comments, document_path, leave_days))
 
             conn.commit()
             flash('Leave applied successfully!', 'success')
@@ -508,10 +613,8 @@ def cancel_leave(leave_id):
             print(f"Leave application not found or cannot be canceled. Leave ID: {leave_id}, User ID: {session['user_id']}")
             return jsonify({'success': False, 'message': 'Leave application not found or cannot be canceled'}), 404
 
-        # Debugging: Log the leave application details
         print(f"Leave application found: {leave}")
 
-        # Delete the leave application
         cur.execute('DELETE FROM leave_applications WHERE id = %s', (leave_id,))
         conn.commit()
 
