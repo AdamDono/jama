@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+
+{% block title %}My Profile{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-4">
+            <!-- Profile Picture Card -->
+            <div class="card">
+                <div class="card-body text-center">
+                    {% if employee and employee['profile_picture'] %}
+                    <img src="{{ url_for('static', filename='uploads/' + employee['profile_picture']) }}"
+                        class="rounded-circle mb-3" style="width: 150px; height: 150px; object-fit: cover;">
+                    {% else %}
+                    <div class="rounded-circle bg-secondary text-white d-flex align-items-center justify-content-center mx-auto mb-3"
+                        style="width: 150px; height: 150px; font-size: 48px;">
+                        <i class="bi bi-person"></i>
+                    </div>
+                    {% endif %}
+                    <h4>{{ session.username }}</h4>
+                    <p class="text-muted">{{ employee['department'] if employee else 'N/A' }}</p>
+                    <a href="{{ url_for('change_password') }}" class="btn btn-outline-primary btn-sm">
+                        <i class="bi bi-key"></i> Change Password
+                    </a>
+                </div>
+            </div>
+
+            <!-- Leave Balance Card -->
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h5><i class="bi bi-calendar-check"></i> Leave Balance</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-2">
+                        <strong>Annual Leave:</strong>
+                        <span class="float-end">{{ calculated_annual_leave }} days</span>
+                    </div>
+                    <small class="text-muted d-block mb-3">Accrues at 1.7 days/month</small>
+
+                    <div class="mb-2">
+                        <strong>Sick Leave:</strong>
+                        <span class="float-end">{{ leave_balance['sick_leave'] if leave_balance else 30 }} days</span>
+                    </div>
+
+                    <div class="mb-2">
+                        <strong>Family Leave:</strong>
+                        <span class="float-end">{{ leave_balance['family_leave'] if leave_balance else 3 }} days</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-8">
+            <!-- Edit Profile Form -->
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="bi bi-person-gear"></i> Edit Profile</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="/profile" enctype="multipart/form-data">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Full Name</label>
+                                <input type="text" class="form-control" name="full_name"
+                                    value="{{ employee['full_name'] if employee else '' }}" required>
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Phone Number</label>
+                                <input type="tel" class="form-control" name="phone"
+                                    value="{{ employee['phone'] if employee else '' }}" pattern="[0-9]{10}" required>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Employee ID</label>
+                                <input type="text" class="form-control"
+                                    value="{{ employee['employee_id'] if employee else '' }}" disabled>
+                                <small class="text-muted">Cannot be changed</small>
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Department</label>
+                                <select class="form-select" name="department" required>
+                                    <option value="HR" {% if employee and employee['department']=='HR' %}selected{%
+                                        endif %}>Human Resources</option>
+                                    <option value="IT" {% if employee and employee['department']=='IT' %}selected{%
+                                        endif %}>Information Technology</option>
+                                    <option value="Sales" {% if employee and employee['department']=='Sales'
+                                        %}selected{% endif %}>Sales</option>
+                                    <option value="Finance" {% if employee and employee['department']=='Finance'
+                                        %}selected{% endif %}>Finance</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Start Date</label>
+                                <input type="date" class="form-control"
+                                    value="{{ employee['start_date'] if employee else '' }}" disabled>
+                                <small class="text-muted">Cannot be changed</small>
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Profile Picture</label>
+                                <input type="file" class="form-control" name="profile_picture" accept="image/*">
+                                <small class="text-muted">Leave empty to keep current picture</small>
+                            </div>
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-save"></i> Save Changes
+                            </button>
+                            <a href="{{ url_for('landing') }}" class="btn btn-outline-secondary">
+                                <i class="bi bi-x-circle"></i> Cancel
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

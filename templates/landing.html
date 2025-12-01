@@ -156,7 +156,8 @@
         {% endif %}
     </div>
 -->
-        <!-- Leave Applications Table -->
+        <!-- Leave Applications Table - Only for non-admin users -->
+        {% if user_role != 'admin' %}
         <div class="mt-5">
             <h3>My Leave Applications</h3>
             <div class="table-responsive">
@@ -218,6 +219,7 @@
                 </table>
             </div>
         </div>
+        {% endif %}
 
         <!-- Leave Balance Section -->
         <div class="mt-5">
@@ -228,12 +230,11 @@
                         <div class="card-body">
                             <h5 class="card-title">Annual Leave</h5>
                             <p class="card-text">
-                                {% if leave_balance %}
-                                {{ leave_balance['annual_leave'] }} days remaining
-                                {% else %}
-                                15 days remaining (default)
-                                {% endif %}
+                                <strong>{{ calculated_annual_leave }} days</strong> accrued
                             </p>
+                            <small class="text-muted">
+                                <i class="bi bi-info-circle"></i> Accrues at 1.7 days/month
+                            </small>
                         </div>
                     </div>
                 </div>

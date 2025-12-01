@@ -19,6 +19,35 @@ def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+def calculate_annual_leave(start_date):
+    """
+    Calculate annual leave accrual based on start date.
+    Accrues at 1.7 days per month (approximately 0.0567 days per day).
+    """
+    from datetime import datetime
+    
+    if not start_date:
+        return 0
+    
+    # Convert to date object if string
+    now = datetime.now().date()
+    if isinstance(start_date, str):
+        start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+    
+    # Calculate total days elapsed
+    days_elapsed = (now - start_date).days
+    
+    # If negative (future date), return 0
+    if days_elapsed < 0:
+        return 0
+    
+    # Calculate accrued leave: 1.7 days per month = 1.7/30 days per day
+    # This equals approximately 0.0567 days per day
+    daily_accrual_rate = 1.7 / 30.0
+    accrued_leave = days_elapsed * daily_accrual_rate
+    
+    return round(accrued_leave, 2)
+
 
 DATABASE = {
     'dbname': 'jama',
@@ -69,52 +98,8 @@ with app.app_context():
     cur.close()
     conn.close()
     
-@app.route('/signup', methods=['GET', 'POST'])
-def signup():
-    if request.method == 'POST':
-        username = request.form['username']
-        email = request.form['email']
-        password = request.form['password']
-
-        conn = get_db_connection()
-        cur = conn.cursor(cursor_factory=DictCursor)
-
-        try:
-            # Check if username or email already exists
-            cur.execute('SELECT * FROM users WHERE username = %s OR email = %s', (username, email))
-            if cur.fetchone():
-                flash('Username or email already exists!', 'error')
-                return redirect(url_for('signup'))
-
-            # Insert new user
-            hashed_password = generate_password_hash(password)
-            cur.execute('''
-                INSERT INTO users (username, email, password)
-                VALUES (%s, %s, %s)
-                RETURNING id
-            ''', (username, email, hashed_password))
-            user_id = cur.fetchone()['id']
-
-            # Initialize leave balance for the new user
-            cur.execute('''
-                INSERT INTO leave_balance (user_id, annual_leave, sick_leave, family_leave)
-                VALUES (%s, 15, 30, 3)
-            ''', (user_id,))
-            conn.commit()
-
-            flash('Registration successful! Please login.', 'success')
-            return redirect(url_for('login'))
-
-        except Exception as e:
-            conn.rollback()
-            flash('Registration failed!', 'error')
-            return redirect(url_for('signup'))
-
-        finally:
-            cur.close()
-            conn.close()
-
-    return render_template('signup.html')
+# Signup route removed - employees are created by admin only
+# Users get accounts automatically when admin creates an employee
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -133,6 +118,12 @@ def login():
                 session['user_id'] = user['id']
                 session['username'] = user['username']
                 session['user_role'] = user['role']
+                
+                # Check if password change is required
+                if user.get('must_change_password', False):
+                    flash('Please change your password', 'warning')
+                    return redirect(url_for('change_password'))
+                
                 flash('Login successful!', 'success')
                 return redirect(url_for('landing'))
             else:
@@ -144,6 +135,60 @@ def login():
             conn.close()
             
     return render_template('login.html')
+
+@app.route('/change_password', methods=['GET', 'POST'])
+def change_password():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    
+    if request.method == 'POST':
+        current_password = request.form['current_password']
+        new_password = request.form['new_password']
+        confirm_password = request.form['confirm_password']
+        
+        # Validate passwords match
+        if new_password != confirm_password:
+            flash('New passwords do not match!', 'error')
+            return redirect(url_for('change_password'))
+        
+        # Validate minimum length
+        if len(new_password) < 6:
+            flash('Password must be at least 6 characters!', 'error')
+            return redirect(url_for('change_password'))
+        
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=DictCursor)
+        
+        try:
+            # Verify current password
+            cur.execute('SELECT password FROM users WHERE id = %s', (session['user_id'],))
+            user = cur.fetchone()
+            
+            if not user or not check_password_hash(user['password'], current_password):
+                flash('Current password is incorrect!', 'error')
+                return redirect(url_for('change_password'))
+            
+            # Update password
+            hashed_new_password = generate_password_hash(new_password)
+            cur.execute('''
+                UPDATE users 
+                SET password = %s, must_change_password = FALSE 
+                WHERE id = %s
+            ''', (hashed_new_password, session['user_id']))
+            
+            conn.commit()
+            flash('Password changed successfully!', 'success')
+            return redirect(url_for('landing'))
+            
+        except Exception as e:
+            conn.rollback()
+            flash(f'Error changing password: {str(e)}', 'error')
+            return redirect(url_for('change_password'))
+        finally:
+            cur.close()
+            conn.close()
+    
+    return render_template('change_password.html')
 
 # Add Employee Route
 # ---------------------------
@@ -169,6 +214,7 @@ def handle_submission():
         employee_id = request.form['employee_id']
         start_date = request.form['start_date']
         department = request.form['department']
+        role = request.form.get('role', 'employee')  # Get role selection
         profile_picture = None
 
         if 'profile_picture' in request.files:
@@ -179,21 +225,45 @@ def handle_submission():
                 profile_picture = filename
 
         conn = get_db_connection()
-        cur = conn.cursor()
+        cur = conn.cursor(cursor_factory=DictCursor)
 
+        # Check if employee_id or phone already exists
         cur.execute('SELECT * FROM employees WHERE phone=%s OR employee_id=%s', (phone, employee_id))
         if cur.fetchone():
             flash('Phone/ID already exists!', 'error')
             return redirect(url_for('show_add_form'))
 
+        # Check if username (full_name) already exists
+        cur.execute('SELECT * FROM users WHERE username=%s', (full_name,))
+        if cur.fetchone():
+            flash('An employee with this name already exists!', 'error')
+            return redirect(url_for('show_add_form'))
+
+        # Create user account first
+        hashed_password = generate_password_hash(employee_id)  # Password = employee_id
+        cur.execute('''
+            INSERT INTO users (username, email, password, role, must_change_password)
+            VALUES (%s, %s, %s, %s, %s)
+            RETURNING id
+        ''', (full_name, f"{employee_id}@company.com", hashed_password, role, True))
+        
+        new_user_id = cur.fetchone()['id']
+
+        # Create employee record
         cur.execute('''
             INSERT INTO employees 
             (user_id, full_name, phone, employee_id, start_date, department, profile_picture)
             VALUES (%s, %s, %s, %s, %s, %s, %s)
-        ''', (session['user_id'], full_name, phone, employee_id, start_date, department, profile_picture))
+        ''', (new_user_id, full_name, phone, employee_id, start_date, department, profile_picture))
+        
+        # Create leave balance (0 annual, 30 sick, 3 family)
+        cur.execute('''
+            INSERT INTO leave_balance (user_id, annual_leave, sick_leave, family_leave, unpaid_leave)
+            VALUES (%s, %s, %s, %s, %s)
+        ''', (new_user_id, 0, 30, 3, 0))
         
         conn.commit()
-        flash('Employee added!', 'success')
+        flash(f'Employee added! Login: {full_name} / Password: {employee_id} (must change on first login)', 'success')
         return redirect(url_for('landing'))
 
     except Exception as e:
@@ -204,6 +274,92 @@ def handle_submission():
     finally:
         cur.close()
         conn.close()
+
+@app.route('/profile', methods=['GET', 'POST'])
+def profile():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=DictCursor)
+    
+    try:
+        if request.method == 'POST':
+            # Handle profile update
+            full_name = request.form['full_name']
+            phone = request.form['phone']
+            department = request.form['department']
+            profile_picture = None
+            
+            # Get current employee data
+            cur.execute('SELECT * FROM employees WHERE user_id = %s', (session['user_id'],))
+            current_employee = cur.fetchone()
+            
+            if not current_employee:
+                flash('Employee record not found!', 'error')
+                return redirect(url_for('landing'))
+            
+            # Handle profile picture upload
+            if 'profile_picture' in request.files:
+                file = request.files['profile_picture']
+                if file and file.filename and allowed_file(file.filename):
+                    filename = secure_filename(file.filename)
+                    file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+                    profile_picture = filename
+                else:
+                    profile_picture = current_employee['profile_picture']
+            else:
+                profile_picture = current_employee['profile_picture']
+            
+            # Update employee record
+            cur.execute('''
+                UPDATE employees 
+                SET full_name = %s, phone = %s, department = %s, profile_picture = %s
+                WHERE user_id = %s
+            ''', (full_name, phone, department, profile_picture, session['user_id']))
+            
+            # Update username in users table
+            cur.execute('''
+                UPDATE users 
+                SET username = %s
+                WHERE id = %s
+            ''', (full_name, session['user_id']))
+            
+            # Update session username
+            session['username'] = full_name
+            
+            conn.commit()
+            flash('Profile updated successfully!', 'success')
+            return redirect(url_for('profile'))
+        
+        # GET request - display profile
+        cur.execute('SELECT * FROM employees WHERE user_id = %s', (session['user_id'],))
+        employee = cur.fetchone()
+        
+        cur.execute('SELECT * FROM leave_balance WHERE user_id = %s', (session['user_id'],))
+        leave_balance = cur.fetchone()
+        
+        calculated_annual_leave = 0
+        if employee and employee['start_date']:
+            # Calculate accrued leave
+            accrued_annual_leave = calculate_annual_leave(employee['start_date'])
+            # Add stored balance (can be negative)
+            stored_balance = leave_balance['annual_leave'] if leave_balance else 0
+            calculated_annual_leave = accrued_annual_leave + stored_balance
+        
+        return render_template('profile.html', 
+                             employee=employee,
+                             leave_balance=leave_balance,
+                             calculated_annual_leave=calculated_annual_leave)
+    
+    except Exception as e:
+        conn.rollback()
+        flash(f'Error: {str(e)}', 'error')
+        return redirect(url_for('landing'))
+    finally:
+        cur.close()
+        conn.close()
+
 @app.route('/logout')
 def logout():
     session.clear()
@@ -222,6 +378,7 @@ def landing():
     employees = []
     leaves = []
     leave_balance = None
+    calculated_annual_leave = 0
 
     try:
         # Fetch the user's role
@@ -247,6 +404,20 @@ def landing():
         # Fetch the user's leave balance
         cur.execute('SELECT * FROM leave_balance WHERE user_id = %s', (session['user_id'],))
         leave_balance = cur.fetchone()
+        
+        # Get employee start date to calculate annual leave
+        cur.execute('SELECT start_date FROM employees WHERE user_id = %s', (session['user_id'],))
+        employee = cur.fetchone()
+        
+        if employee and employee['start_date']:
+            # Calculate accrued leave based on start date
+            accrued_annual_leave = calculate_annual_leave(employee['start_date'])
+            # Add the stored balance (which tracks deductions and can be negative)
+            # Net = Accrued + Stored (where stored starts at 0 and goes negative when leave is taken)
+            stored_balance = leave_balance['annual_leave'] if leave_balance else 0
+            calculated_annual_leave = accrued_annual_leave + stored_balance
+        else:
+            calculated_annual_leave = 0
 
         if not leave_balance:
             print(f"Leave balance not found for user ID: {session['user_id']}")  # Debugging
@@ -257,7 +428,12 @@ def landing():
         cur.close()
         conn.close()
 
-    return render_template('landing.html', employees=employees, leaves=leaves, leave_balance=leave_balance, user_role=user_role)
+    return render_template('landing.html', 
+                         employees=employees, 
+                         leaves=leaves, 
+                         leave_balance=leave_balance,
+                         calculated_annual_leave=calculated_annual_leave,
+                         user_role=user_role)
 
 # Add to add_employee_form route
 @app.route('/add_employee_form')

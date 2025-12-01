@@ -16,6 +16,9 @@
             <h1>Employee Management System</h1>
             <div class="nav-links">
                 <span>Welcome, {{ session.username }}!</span>
+                <a href="{{ url_for('profile') }}" class="btn-nav">
+                    <i class="bi bi-person-circle"></i> My Profile
+                </a>
                 <a href="/logout" class="btn-logout">Logout</a>
             </div>
             {% endif %}
