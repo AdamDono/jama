@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block title %}Leave Comments{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-chat-dots"></i> Leave Application Comments</h2>
+        <a href="{{ url_for('landing') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Back
+        </a>
+    </div>
+
+    <!-- Leave Details Card -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5>Leave Details</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <p><strong>Employee:</strong> {{ leave['full_name'] or leave['username'] }}</p>
+                    <p><strong>Leave Type:</strong> {{ leave['leave_type']|capitalize }}</p>
+                    <p><strong>Days:</strong> {{ leave['days'] }}</p>
+                </div>
+                <div class="col-md-6">
+                    <p><strong>Start Date:</strong> {{ leave['start_date'] }}</p>
+                    <p><strong>End Date:</strong> {{ leave['end_date'] }}</p>
+                    <p><strong>Status:</strong>
+                        <span
+                            class="badge {% if leave['status'] == 'Approved' %}bg-success{% elif leave['status'] == 'Rejected' %}bg-danger{% else %}bg-warning{% endif %}">
+                            {{ leave['status'] }}
+                        </span>
+                    </p>
+                </div>
+            </div>
+            {% if leave['comments'] %}
+            <p><strong>Employee Comments:</strong> {{ leave['comments'] }}</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Comments Section -->
+    <div class="card">
+        <div class="card-header">
+            <h5><i class="bi bi-chat-left-text"></i> Discussion ({{ comments|length }})</h5>
+        </div>
+        <div class="card-body">
+            <!-- Existing Comments -->
+            <div class="comments-list mb-4" style="max-height: 400px; overflow-y: auto;">
+                {% if comments %}
+                {% for comment in comments %}
+                <div class="card mb-2">
+                    <div class="card-body py-2">
+                        <div class="d-flex justify-content-between">
+                            <strong>{{ comment['full_name'] or comment['username'] }}</strong>
+                            <small class="text-muted">{{ comment['created_at'].strftime('%Y-%m-%d %H:%M') }}</small>
+                        </div>
+                        <p class="mb-0 mt-1">{{ comment['comment'] }}</p>
+                    </div>
+                </div>
+                {% endfor %}
+                {% else %}
+                <p class="text-muted">No comments yet. Be the first to comment!</p>
+                {% endif %}
+            </div>
+
+            <!-- Add Comment Form -->
+            <form method="POST">
+                <div class="mb-3">
+                    <label class="form-label">Add a comment</label>
+                    <textarea class="form-control" name="comment" rows="3" required
+                        placeholder="Type your message here..."></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-send"></i> Send Comment
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

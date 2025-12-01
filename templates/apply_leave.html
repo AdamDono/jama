@@ -14,15 +14,33 @@
             </select>
         </div>
 
-        <div class="row mb-3">
-            <div class="col">
+        <div class="row">
+            <div class="col-md-6 mb-3">
                 <label class="form-label">Start Date</label>
                 <input type="date" class="form-control" name="start_date" required>
             </div>
-            <div class="col">
+            <div class="col-md-6 mb-3">
                 <label class="form-label">End Date</label>
                 <input type="date" class="form-control" name="end_date" required>
             </div>
+        </div>
+
+        <div class="mb-3 form-check">
+            <input type="checkbox" class="form-check-input" id="partialLeaveCheck" name="is_partial_leave">
+            <label class="form-check-label" for="partialLeaveCheck">
+                <strong>Partial Day Leave</strong>
+            </label>
+            <small class="d-block text-muted">Check this if you're only taking part of the day off</small>
+        </div>
+
+        <div class="mb-3" id="hoursWorkedDiv" style="display: none;">
+            <label class="form-label">Hours Worked That Day</label>
+            <input type="number" class="form-control" name="hours_worked" id="hoursWorkedInput" min="0" max="8"
+                step="0.5" placeholder="e.g., 4">
+            <small class="text-muted">
+                Enter how many hours you worked that day (0-8 hours).
+                Example: If you worked 4 hours, you'll use 4 hours of leave (0.5 days).
+            </small>
         </div>
 
         <div class="mb-3">
@@ -30,9 +48,26 @@
             <textarea class="form-control" name="comments" rows="3"></textarea>
         </div>
 
+        <script>
+            // Show/hide hours input based on partial leave checkbox
+            document.getElementById('partialLeaveCheck').addEventListener('change', function () {
+                const hoursDiv = document.getElementById('hoursWorkedDiv');
+                const hoursInput = document.getElementById('hoursWorkedInput');
+                if (this.checked) {
+                    hoursDiv.style.display = 'block';
+                    hoursInput.required = true;
+                } else {
+                    hoursDiv.style.display = 'none';
+                    hoursInput.required = false;
+                    hoursInput.value = '';
+                }
+            });
+        </script>
+
         <div class="mb-3">
-            <label class="form-label">Upload Document (if sick leave)</label>
-            <input type="file" class="form-control" name="document">
+            <label class="form-label">Supporting Document</label>
+            <input type="file" class="form-control" name="document" accept=".pdf,.doc,.docx,.jpg,.png">
+            <small class="text-muted">Optional - attach medical certificates or other supporting documents</small>
         </div>
 
         <button type="submit" class="btn btn-primary">Submit Application</button>

@@ -9,15 +9,51 @@
         </a>
     </div>
 
+    <!-- Filters -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="GET" class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">Status</label>
+                    <select name="status" class="form-select" onchange="this.form.submit()">
+                        <option value="all" {% if status_filter=='all' %}selected{% endif %}>All Statuses</option>
+                        <option value="pending" {% if status_filter=='pending' %}selected{% endif %}>Pending</option>
+                        <option value="approved" {% if status_filter=='approved' %}selected{% endif %}>Approved</option>
+                        <option value="rejected" {% if status_filter=='rejected' %}selected{% endif %}>Rejected</option>
+                        <option value="canceled" {% if status_filter=='canceled' %}selected{% endif %}>Canceled</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Department</label>
+                    <select name="department" class="form-select" onchange="this.form.submit()">
+                        <option value="all" {% if department_filter=='all' %}selected{% endif %}>All Departments
+                        </option>
+                        {% for dept in departments %}
+                        <option value="{{ dept['department'] }}" {% if department_filter==dept['department']
+                            %}selected{% endif %}>
+                            {{ dept['department'] }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4 d-flex align-items-end">
+                    <a href="{{ url_for('admin_leaves') }}" class="btn btn-secondary">Clear Filters</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div class="admin-section">
         {% if pending_leaves %}
         <table class="admin-table">
             <thead>
                 <tr>
                     <th>Employee</th>
+                    <th>Department</th>
                     <th>Type</th>
                     <th>Dates</th>
                     <th>Days</th>
+                    <th>Status</th>
                     <th>Reason</th>
                     <th>Actions</th>
                 </tr>
@@ -26,30 +62,42 @@
                 {% for leave in pending_leaves %}
                 <tr>
                     <td>{{ leave['full_name'] }}</td>
+                    <td>{{ leave['department'] or 'N/A' }}</td>
                     <td>{{ leave['leave_type']|capitalize }}</td>
                     <td>{{ leave['start_date'] }} to {{ leave['end_date'] }}</td>
+                    <td>{{ leave['days'] }}</td>
                     <td>
-                        {% if leave['days'] %}
-                        {{ leave['days'] }}
-                        {% else %}
-                        {{ (leave['end_date'] - leave['start_date']).days + 1 }} (Calc)
+                        {% if leave.status == 'Pending' %}
+                        <span class="badge bg-warning text-dark">Pending</span>
+                        {% elif leave.status == 'Approved' %}
+                        <span class="badge bg-success">Approved</span>
+                        {% elif leave.status == 'Rejected' %}
+                        <span class="badge bg-danger">Rejected</span>
+                        {% elif leave.status == 'Canceled' %}
+                        <span class="badge bg-secondary">Canceled</span>
                         {% endif %}
                     </td>
                     <td>{{ leave['comments'] }}</td>
                     <td>
-                        <div class="action-buttons">
+                        <div class="action-buttons d-flex gap-2 align-items-center">
+                            {% if leave['status']|lower == 'pending' %}
                             <form action="{{ url_for('approve_leave', leave_id=leave['id']) }}" method="POST"
                                 style="display:inline;">
                                 <button type="submit" class="btn btn-sm btn-success">
                                     <i class="bi bi-check-circle"></i> Approve
                                 </button>
                             </form>
-                            <form action="{{ url_for('reject_leave', leave_id=leave['id']) }}" method="POST"
-                                style="display:inline;">
-                                <button type="submit" class="btn btn-sm btn-danger">
-                                    <i class="bi bi-x-circle"></i> Reject
-                                </button>
-                            </form>
+                            <button type="button" class="btn btn-sm btn-danger"
+                                onclick="confirmRejectLeave({{ leave['id'] }}, '{{ leave['full_name'] }}')">
+                                <i class="bi bi-x-circle"></i> Reject
+                            </button>
+                            {% endif %}
+                            <a href="{{ url_for('leave_comments', leave_id=leave['id']) }}" class="btn btn-sm btn-info">
+                                <i class="bi bi-chat-dots"></i> Comments
+                                {% if leave['comment_count'] > 0 %}
+                                <span class="badge bg-danger">{{ leave['comment_count'] }}</span>
+                                {% endif %}
+                            </a>
                         </div>
                     </td>
                 </tr>
@@ -58,7 +106,7 @@
         </table>
         {% else %}
         <div class="alert alert-info">
-            <i class="bi bi-info-circle"></i> No pending leave applications found.
+            <i class="bi bi-info-circle"></i> No leave applications found with the selected filters.
         </div>
         {% endif %}
     </div>

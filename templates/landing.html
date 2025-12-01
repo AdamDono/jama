@@ -1,325 +1,271 @@
-<!DOCTYPE html>
-<html>
+{% extends "base.html" %}
 
-<head>
-    <title>Welcome</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-</head>
+{% block title %}Welcome{% endblock %}
 
-<body>
-    <nav class="main-nav">
-        <div class="nav-container">
-            <h1>Employee Management</h1>
-            <div class="nav-links">
-                {% if user_role == 'admin' %}
-                <a href="{{ url_for('admin_dashboard') }}" class="btn-admin">
-                    <i class="bi bi-speedometer2"></i> Dashboard
-                </a>
-                {% endif %}
-                <span class="welcome-msg">Welcome, {{ session.username }} ({{ user_role }})</span>
-                <a href="{{ url_for('logout') }}" class="btn-logout">
-                    <i class="bi bi-box-arrow-right"></i> Logout
-                </a>
-            </div>
-        </div>
-    </nav>
-
-    <div class="container mt-4">
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Employee Management</h1>
         {% if user_role == 'admin' %}
-        <!-- Admin View -->
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h2>Employee Directory</h2>
-            <div>
-                <a href="/add_employee_form" class="btn btn-success">
-                    <i class="bi bi-person-plus"></i> Add Employee
-                </a>
-                <a href="/apply_leave" class="btn btn-primary ml-2">
-                    <i class="bi bi-calendar-plus"></i> Apply for Leave
-                </a>
-                <a href="{{ url_for('admin_leaves') }}" class="btn btn-warning ml-2">
-                    <i class="bi bi-list-check"></i> Manage Leaves
-                </a>
-            </div>
-        </div>
+        <a href="{{ url_for('admin_dashboard') }}" class="btn btn-primary">
+            <i class="bi bi-speedometer2"></i> Dashboard
+        </a>
+        {% endif %}
+    </div>
 
+    {% if user_role == 'admin' %}
+    <!-- Admin View -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Employee Directory</h2>
+        <div>
+            <a href="/add_employee_form" class="btn btn-success">
+                <i class="bi bi-person-plus"></i> Add Employee
+            </a>
+            <a href="/apply_leave" class="btn btn-primary ml-2">
+                <i class="bi bi-calendar-plus"></i> Apply for Leave
+            </a>
+            <a href="{{ url_for('admin_leaves') }}" class="btn btn-warning ml-2">
+                <i class="bi bi-list-check"></i> Manage Leaves
+            </a>
+        </div>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-striped table-hover">
+            <thead>
+                <tr>
+                    <th>Profile</th>
+                    <th>Name</th>
+                    <th>Department</th>
+                    <th>Role</th>
+                    <th>Start Date</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for employee in employees %}
+                <tr>
+                    <td>
+                        {% if employee['profile_picture'] %}
+                        <img src="{{ url_for('static', filename='uploads/' + employee['profile_picture']) }}"
+                            alt="Profile" class="rounded-circle" style="width: 40px; height: 40px; object-fit: cover;">
+                        {% else %}
+                        <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white"
+                            style="width: 40px; height: 40px;">
+                            {{ employee['full_name'][0] }}
+                        </div>
+                        {% endif %}
+                    </td>
+                    <td>{{ employee['full_name'] }}</td>
+                    <td>{{ employee['department'] }}</td>
+                    <td>
+                        <span
+                            class="badge {% if employee['role'] == 'admin' %}bg-danger{% else %}bg-primary{% endif %}">
+                            {{ employee['role']|title }}
+                        </span>
+                    </td>
+                    <td>{{ employee['start_date'] }}</td>
+                    <td>
+                        <a href="{{ url_for('edit_employee', employee_id=employee['id']) }}"
+                            class="btn btn-sm btn-primary">
+                            <i class="bi bi-pencil"></i> Edit
+                        </a>
+                        <button class="btn btn-sm btn-danger"
+                            onclick="confirmDeleteEmployee({{ employee['id'] }}, '{{ employee['full_name'] }}')">
+                            <i class="bi bi-trash"></i> Delete
+                        </button>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="7" class="text-center">No employees found</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if total_pages > 1 %}
+    <nav aria-label="Employee pagination" class="mt-3">
+        <ul class="pagination justify-content-center">
+            <li class="page-item {% if page == 1 %}disabled{% endif %}">
+                <a class="page-link" href="?page={{ page - 1 }}">Previous</a>
+            </li>
+            {% for p in range(1, total_pages + 1) %}
+            <li class="page-item {% if p == page %}active{% endif %}">
+                <a class="page-link" href="?page={{ p }}">{{ p }}</a>
+            </li>
+            {% endfor %}
+            <li class="page-item {% if page == total_pages %}disabled{% endif %}">
+                <a class="page-link" href="?page={{ page + 1 }}">Next</a>
+            </li>
+        </ul>
+        <p class="text-center text-muted">Page {{ page }} of {{ total_pages }}</p>
+    </nav>
+    {% endif %}
+
+    {% else %}
+    <!-- Regular User View -->
+    <div class="text-center py-5">
+        <h3>Welcome, {{ session.username }}</h3>
+        <p>Use the button below to manage your leave applications</p>
+        <a href="/apply_leave" class="btn btn-primary btn-lg">
+            <i class="bi bi-calendar-plus"></i> Apply for Leave
+        </a>
+    </div>
+    {% endif %}
+
+    <!-- My Leave Applications Section - For all users -->
+    <div class="mt-5">
+        <h3>My Leave Applications</h3>
         <div class="table-responsive">
             <table class="table table-striped table-hover">
                 <thead>
                     <tr>
-                        <th>Photo</th>
-                        <th>Name</th>
-                        <th>Employee ID</th>
-                        <th>Phone</th>
-                        <th>Department</th>
+                        <th>Leave Type</th>
                         <th>Start Date</th>
+                        <th>End Date</th>
+                        <th>Status</th>
+                        <th>Date Applied</th>
+                        <th>Comments</th>
+                        <th>Document</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for employee in employees %}
+                    {% for leave in leaves %}
                     <tr>
+                        <td>{{ leave['leave_type'] }}</td>
+                        <td>{{ leave['start_date'].strftime('%Y-%m-%d') }}</td>
+                        <td>{{ leave['end_date'].strftime('%Y-%m-%d') }}</td>
                         <td>
-                            {% if employee['profile_picture'] %}
-                            <img src="{{ url_for('static', filename='uploads/' + employee['profile_picture']) }}"
-                                class="rounded-circle" style="width: 50px; height: 50px; object-fit: cover;">
+                            <span class="badge 
+                                {% if leave['status'] == 'Approved' %}bg-success
+                                {% elif leave['status'] == 'Rejected' %}bg-danger
+                                {% else %}bg-warning{% endif %}">
+                                {{ leave['status'] }}
+                            </span>
+                        </td>
+                        <td>{{ leave['created_at'].strftime('%Y-%m-%d %H:%M') }}</td>
+                        <td>{{ leave.comments or 'No comments' }}</td>
+                        <td>
+                            {% if leave.document_path %}
+                            <a href="{{ url_for('static', filename='uploads/' + leave.document_path) }}" target="_blank"
+                                class="text-primary">
+                                <i class="bi bi-file-earmark-text"></i> View Document
+                            </a>
                             {% else %}
-                            <div class="rounded-circle bg-secondary text-white d-flex align-items-center justify-content-center"
-                                style="width: 50px; height: 50px;">
-                                <i class="bi bi-person"></i>
-                            </div>
+                            No Document
                             {% endif %}
                         </td>
-                        <td>{{ employee['full_name'] }}</td>
-                        <td>{{ employee['employee_id'] }}</td>
-                        <td>{{ employee['phone'] }}</td>
-                        <td>{{ employee['department'] }}</td>
-                        <td>{{ employee['start_date'].strftime('%Y-%m-%d') }}</td>
                         <td>
-                            <a href="{{ url_for('edit_employee', employee_id=employee['id']) }}"
-                                class="btn btn-sm btn-warning">
-                                <i class="bi bi-pencil"></i> Edit
-                            </a>
-                            <button class="btn btn-sm btn-danger" onclick="confirmDelete({{ employee['id'] }})">
-                                <i class="bi bi-trash"></i> Delete
+                            {% if leave['status']|lower == 'pending' %}
+                            <button class="btn btn-sm btn-danger" onclick="cancelLeave({{ leave['id'] }})">
+                                <i class="bi bi-x-circle"></i> Cancel
                             </button>
+                            {% else %}
+                            <span class="text-muted">Cannot cancel</span>
+                            {% endif %}
+                            <a href="{{ url_for('leave_comments', leave_id=leave['id']) }}" class="btn btn-sm btn-info">
+                                <i class="bi bi-chat-dots"></i> Comments
+                                {% if leave.comment_count > 0 %}
+                                <span class="badge bg-light text-dark">{{ leave.comment_count }}</span>
+                                {% endif %}
+                            </a>
                         </td>
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="7" class="text-center">No employees found</td>
+                        <td colspan="8" class="text-center">No leave applications found</td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
-        {% else %}
-        <!-- Regular User View -->
-        <div class="text-center py-5">
-            <h3>Welcome, {{ session.username }}</h3>
-            <p>Use the button below to manage your leave applications</p>
-            <a href="/apply_leave" class="btn btn-primary">
-                <i class="bi bi-calendar-plus"></i> Apply for Leave
-            </a>
-        </div>
-        <!--
- 
-        <div class="mt-5">
-            <h3>My Leave Applications</h3>
-            <div class="table-responsive">
-                <table class="table table-striped table-hover">
-                    <thead>
-                        <tr>
-                            <th>Leave Type</th>
-                            <th>Start Date</th>
-                            <th>End Date</th>
-                            <th>Status</th>
-                            <th>Comments</th>
-                            <th>Document</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for leave in leaves %}
-                        <tr>
-                            <td>{{ leave['leave_type'] }}</td>
-                            <td>{{ leave['start_date'].strftime('%Y-%m-%d') }}</td>
-                            <td>{{ leave['end_date'].strftime('%Y-%m-%d') }}</td>
-                            <td>
-                                <span class="badge 
-                                    {% if leave['status'] == 'Approved' %}bg-success
-                                    {% elif leave['status'] == 'Rejected' %}bg-danger
-                                    {% else %}bg-warning{% endif %}">
-                                    {{ leave['status'] }}
-                                </span>
-                            </td>
-                            <td>{{ leave['comments'] }}</td>
-                            <td>
-                                {% if leave['document_path'] %}
-                                <a href="{{ url_for('static', filename='uploads/' + leave['document_path']) }}" target="_blank">
-                                    <i class="bi bi-file-earmark"></i> View Document
-                                </a>
-                                {% else %}
-                                No Document
-                                {% endif %}
-                            </td>
-                        </tr>
-                        {% else %}
-                        <tr>
-                            <td colspan="6" class="text-center">No leave applications found</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-        {% endif %}
     </div>
--->
-        <!-- Leave Applications Table - Only for non-admin users -->
-        {% if user_role != 'admin' %}
-        <div class="mt-5">
-            <h3>My Leave Applications</h3>
-            <div class="table-responsive">
-                <table class="table table-striped table-hover">
-                    <thead>
-                        <tr>
-                            <th>Leave Type</th>
-                            <th>Start Date</th>
-                            <th>End Date</th>
-                            <th>Status</th>
-                            <th>Date Applied</th>
-                            <th>Comments</th>
-                            <th>Document</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for leave in leaves %}
-                        <tr>
-                            <td>{{ leave['leave_type'] }}</td>
-                            <td>{{ leave['start_date'].strftime('%Y-%m-%d') }}</td>
-                            <td>{{ leave['end_date'].strftime('%Y-%m-%d') }}</td>
-                            <td>
-                                <span class="badge 
-                            {% if leave['status'] == 'Approved' %}bg-success
-                            {% elif leave['status'] == 'Rejected' %}bg-danger
-                            {% else %}bg-warning{% endif %}">
-                                    {{ leave['status'] }}
-                                </span>
-                            </td>
-                            <td>{{ leave['created_at'].strftime('%Y-%m-%d %H:%M') }}</td>
-                            <td>{{ leave['comments'] }}</td>
-                            <td>
-                                {% if leave['document_path'] %}
-                                <a href="{{ url_for('static', filename='uploads/' + leave['document_path']) }}"
-                                    target="_blank">
-                                    <i class="bi bi-file-earmark"></i> View Document
-                                </a>
-                                {% else %}
-                                No Document
-                                {% endif %}
-                            </td>
-                            <td>
-                                {% if leave['status'].lower() == 'pending' %}
-                                <button class="btn btn-sm btn-danger" onclick="cancelLeave({{ leave['id'] }})">
-                                    <i class="bi bi-x-circle"></i> Cancel
-                                </button>
-                                {% else %}
-                                <span>Cannot cancel</span>
-                                {% endif %}
-                            </td>
-                        </tr>
-                        {% else %}
-                        <tr>
-                            <td colspan="8" class="text-center">No leave applications found</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-        {% endif %}
 
-        <!-- Leave Balance Section -->
-        <div class="mt-5">
-            <h3>My Leave Balance</h3>
-            <div class="row">
-                <div class="col-md-4">
-                    <div class="card">
-                        <div class="card-body">
-                            <h5 class="card-title">Annual Leave</h5>
-                            <p class="card-text">
-                                <strong>{{ calculated_annual_leave }} days</strong> accrued
-                            </p>
-                            <small class="text-muted">
-                                <i class="bi bi-info-circle"></i> Accrues at 1.7 days/month
-                            </small>
-                        </div>
+    <!-- Leave Balance Section -->
+    <div class="mt-5">
+        <h3>My Leave Balance</h3>
+        <div class="row">
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Annual Leave</h5>
+                        <p class="card-text">
+                            {% if calculated_annual_leave is defined %}
+                            <strong>{{ calculated_annual_leave }} days</strong> accrued
+                            {% else %}
+                            <strong>0 days</strong> accrued
+                            {% endif %}
+                        </p>
+                        <small class="text-muted">
+                            <i class="bi bi-info-circle"></i> Accrues at 1.25 days/month (15 days/year max)
+                        </small>
                     </div>
                 </div>
-                <div class="col-md-4">
-                    <div class="card">
-                        <div class="card-body">
-                            <h5 class="card-title">Sick Leave</h5>
-                            <p class="card-text">
-                                {% if leave_balance %}
-                                {{ leave_balance['sick_leave'] }} days remaining
-                                {% else %}
-                                30 days remaining (default)
-                                {% endif %}
-                            </p>
-                        </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Sick Leave</h5>
+                        <p class="card-text">
+                            {% if leave_balance %}
+                            <strong>{{ leave_balance['sick_leave'] }} days</strong> remaining
+                            {% else %}
+                            <strong>10 days</strong> remaining
+                            {% endif %}
+                        </p>
                     </div>
                 </div>
-                <div class="col-md-4">
-                    <div class="card">
-                        <div class="card-body">
-                            <h5 class="card-title">Family Leave</h5>
-                            <p class="card-text">
-                                {% if leave_balance %}
-                                {{ leave_balance['family_leave'] }} days remaining
-                                {% else %}
-                                3 days remaining (default)
-                                {% endif %}
-                            </p>
-                        </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Family Responsibility Leave</h5>
+                        <p class="card-text">
+                            {% if leave_balance %}
+                            <strong>{{ leave_balance['family_leave'] }} days</strong> remaining
+                            {% else %}
+                            <strong>5 days</strong> remaining
+                            {% endif %}
+                        </p>
                     </div>
                 </div>
             </div>
         </div>
-        <script>
-            function cancelLeave(leaveId) {
-                console.log(`Canceling leave ID: ${leaveId} for user ID: {{ session.user_id }}`); // Debugging
-                if (confirm("Are you sure you want to cancel this leave application?")) {
-                    fetch(`/landing/cancel_leave/${leaveId}`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
+    </div>
+    <script>
+        function cancelLeave(leaveId) {
+            if (confirm('Are you sure you want to cancel this leave application?')) {
+                fetch(`/landing/cancel_leave/${leaveId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            showToast(data.message, 'success');
+                            setTimeout(() => location.reload(), 1500);
+                        } else {
+                            showToast(data.message, 'error');
+                        }
                     })
-                        .then(response => {
-                            if (!response.ok) {
-                                // Log the raw response text for debugging
-                                return response.text().then(text => {
-                                    throw new Error(`Server returned: ${text}`);
-                                });
-                            }
-                            return response.json();
-                        })
-                        .then(data => {
-                            if (data.success) {
-                                alert("Leave application canceled successfully!");
-                                window.location.reload(); // Refresh the page to update the table
-                            } else {
-                                alert(`Failed to cancel leave application: ${data.message}`);
-                            }
-                        })
-                        .catch(error => {
-                            console.error('Error:', error);
-                            alert("An error occurred while canceling the leave application.");
-                        });
-                }
+                    .catch(error => {
+                        showToast('Error canceling leave: ' + error, 'error');
+                    });
             }
-        </script>
+        }
+    </script>
 
-        <script>
-            function confirmDelete(employeeId) {
-                if (confirm("Are you sure you want to delete this employee?")) {
-                    window.location.href = `/delete_employee/${employeeId}`;
-                }
+    <script>
+        function confirmDelete(employeeId) {
+            if (confirm("Are you sure you want to delete this employee?")) {
+                window.location.href = `/delete_employee/${employeeId}`;
             }
-        </script>
-
-        <script>
-            {% with messages = get_flashed_messages(with_categories = true) %}
-            {% if messages %}
-            {% for category, message in messages %}
-            alert("{{ message }}");
-            {% endfor %}
-            {% endif %}
-            {% endwith %}
-        </script>
-</body>
-
-</html>
+        }
+    </script>
+    {% endblock %}

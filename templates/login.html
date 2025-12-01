@@ -1,9 +1,11 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <title>Login</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/get.css') }}">
 </head>
+
 <body>
     <div class="form-container">
         <h2>Login</h2>
@@ -20,20 +22,12 @@
         // Remove confirm_password validation as it's not in the login form
         function validateForm() {
             const password = document.querySelector('input[name="password"]').value;
-            
+
             // You can add additional validation if needed
             return true;
         }
     </script>
 
-    <script>
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                    alert("{{ message }}");
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
-    </script>
 </body>
+
 </html>
