@@ -121,6 +121,21 @@ def get_db_connection():
  
     return psycopg2.connect(**DATABASE)
 
+def log_audit(admin_id, action, target_type, target_id, details=None):
+    """Helper function to log admin actions"""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute('''
+            INSERT INTO audit_logs (admin_id, action, target_type, target_id, details)
+            VALUES (%s, %s, %s, %s, %s)
+        ''', (admin_id, action, target_type, target_id, details))
+        conn.commit()
+        cur.close()
+        conn.close()
+    except Exception as e:
+        print(f"Failed to log audit: {e}")
+
 
 conn = get_db_connection()
 cur = conn.cursor()
@@ -328,6 +343,11 @@ def handle_submission():
         ''', (new_user_id, 0, 30, 3, 0))
         
         conn.commit()
+        
+        # Log audit
+        log_audit(session['user_id'], 'Add Employee', 'Employee', new_user_id, 
+                 f"Added employee {full_name} ({employee_id}) as {role}")
+
         flash(f'Employee added! Login: {full_name} / Password: {employee_id} (must change on first login)', 'success')
         return redirect(url_for('landing'))
 
@@ -719,6 +739,11 @@ def edit_employee(employee_id):
             ''', (full_name, phone, department, job_title, start_date, profile_picture, employee_id))
             
             conn.commit()
+            
+            # Log audit
+            log_audit(session['user_id'], 'Edit Employee', 'Employee', employee_id, 
+                     f"Updated details for employee ID {employee_id}")
+
             flash('Employee updated successfully!', 'success')
             return redirect(url_for('landing'))
 
@@ -826,6 +851,107 @@ def admin_dashboard():
         return redirect(url_for('admin_dashboard'))
 
 
+
+
+@app.route('/leave_calendar')
+def leave_calendar():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    
+    from datetime import datetime, timedelta
+    import calendar
+    
+    # Get month and year from query params, default to current
+    month = request.args.get('month', datetime.now().month, type=int)
+    year = request.args.get('year', datetime.now().year, type=int)
+    
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=DictCursor)
+    
+    try:
+        # Fetch all leave applications for the user
+        cur.execute('''
+            SELECT * FROM leave_applications 
+            WHERE user_id = %s 
+            ORDER BY start_date
+        ''', (session['user_id'],))
+        leaves = cur.fetchall()
+        
+        # Create calendar data structure
+        cal = calendar.monthcalendar(year, month)
+        month_name = calendar.month_name[month]
+        
+        # Build a dictionary of dates with leave info
+        leave_dates = {}
+        for leave in leaves:
+            current_date = leave['start_date']
+            end_date = leave['end_date']
+            
+            # Add all dates in the leave range
+            while current_date <= end_date:
+                date_key = current_date.strftime('%Y-%m-%d')
+                if date_key not in leave_dates:
+                    leave_dates[date_key] = []
+                
+                leave_dates[date_key].append({
+                    'type': leave['leave_type'],
+                    'status': leave['status'],
+                    'id': leave['id']
+                })
+                current_date += timedelta(days=1)
+        
+        # Calculate previous and next month
+        prev_month = month - 1 if month > 1 else 12
+        prev_year = year if month > 1 else year - 1
+        next_month = month + 1 if month < 12 else 1
+        next_year = year if month < 12 else year + 1
+        
+        # Get current date for highlighting today
+        now = datetime.now()
+        
+        return render_template('leave_calendar.html',
+                             calendar=cal,
+                             month=month,
+                             year=year,
+                             month_name=month_name,
+                             leave_dates=leave_dates,
+                             prev_month=prev_month,
+                             prev_year=prev_year,
+                             next_month=next_month,
+                             next_year=next_year,
+                             current_day=now.day,
+                             current_month=now.month,
+                             current_year=now.year)
+    finally:
+        cur.close()
+        conn.close()
+
+
+@app.route('/admin/audit_logs')
+def audit_logs():
+    if 'user_id' not in session or session.get('user_role') != 'admin':
+        return redirect(url_for('login'))
+
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=DictCursor)
+    
+    try:
+        cur.execute('''
+            SELECT al.*, u.username as admin_name 
+            FROM audit_logs al
+            JOIN users u ON al.admin_id = u.id
+            ORDER BY al.created_at DESC
+        ''')
+        logs = cur.fetchall()
+        return render_template('audit_logs.html', logs=logs)
+    except Exception as e:
+        flash(f'Error loading audit logs: {e}', 'error')
+        return redirect(url_for('landing'))
+    finally:
+        cur.close()
+        conn.close()
+
+
 @app.route('/admin/approve_leave/<int:leave_id>', methods=['POST'])
 def approve_leave(leave_id):
     if 'user_id' not in session or session.get('user_role') != 'admin':
@@ -931,6 +1057,11 @@ def reject_leave(leave_id):
         cur.execute("UPDATE leave_applications SET status = 'Rejected' WHERE id = %s", (leave_id,))
         
         conn.commit()
+        
+        # Log audit
+        log_audit(session['user_id'], 'Reject Leave', 'Leave Application', leave_id, 
+                 f"Rejected {leave_type} leave for {leave_days} days")
+        
         flash('Leave rejected and balance refunded', 'success')
 
     except Exception as e:
