@@ -6,7 +6,7 @@ from werkzeug.utils import secure_filename  # <-- Add this
 from psycopg2.extras import DictCursor 
 import psycopg2.extras  # Add this line
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
-from datetime import datetime
+from datetime import datetime, timedelta
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
@@ -558,10 +558,97 @@ def logout():
     return redirect(url_for('login'))
 
 
-@app.route('/landing')
-def landing():
+
+@app.route('/employee_dashboard')
+def employee_dashboard():
     if 'user_id' not in session:
         return redirect(url_for('login'))
+    
+    if session.get('user_role') == 'admin':
+        return redirect(url_for('landing'))
+    
+    import calendar as cal_module
+    
+    # Get month and year from query params
+    month = request.args.get('month', datetime.now().month, type=int)
+    year = request.args.get('year', datetime.now().year, type=int)
+    
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=DictCursor)
+    
+    try:
+        # Get leave balance
+        cur.execute('SELECT * FROM leave_balance WHERE user_id = %s', (session['user_id'],))
+        leave_balance = cur.fetchone()
+        
+        # Get employee details for annual leave calculation
+        cur.execute('SELECT * FROM employees WHERE user_id = %s', (session['user_id'],))
+        employee = cur.fetchone()
+        
+        # Calculate annual leave
+        if employee and employee.get('start_date'):
+            accrued_annual_leave = calculate_annual_leave(employee['start_date'])
+            stored_balance = float(leave_balance['annual_leave']) if leave_balance else 0.0
+            calculated_annual_leave = float(accrued_annual_leave) + stored_balance
+        else:
+            calculated_annual_leave = 0
+        
+        # Fetch user's leave applications to show on calendar
+        cur.execute('''
+            SELECT * FROM leave_applications 
+            WHERE user_id = %s 
+            AND status IN ('Approved', 'Pending')
+            ORDER BY start_date
+        ''', (session['user_id'],))
+        user_leaves = cur.fetchall()
+        
+        # Build leave dates dictionary for calendar
+        leave_dates = {}
+        for leave in user_leaves:
+            current_date = leave['start_date']
+            end_date = leave['end_date']
+            
+            while current_date <= end_date:
+                date_key = current_date.strftime('%Y-%m-%d')
+                if date_key not in leave_dates:
+                    leave_dates[date_key] = []
+                
+                leave_dates[date_key].append({
+                    'type': leave['leave_type'],
+                    'status': leave['status'],
+                    'id': leave['id']
+                })
+                current_date += timedelta(days=1)
+        
+        # Build calendar data
+        calendar_data = {
+            'calendar': cal_module.monthcalendar(year, month),
+            'month': month,
+            'year': year,
+            'month_name': cal_module.month_name[month],
+            'current_day': datetime.now().day,
+            'current_month': datetime.now().month,
+            'current_year': datetime.now().year
+        }
+        
+        return render_template('employee_dashboard.html',
+                             leave_balance=leave_balance,
+                             calculated_annual_leave=calculated_annual_leave,
+                             calendar_data=calendar_data,
+                             leave_dates=leave_dates)
+    finally:
+        cur.close()
+        conn.close()
+
+@app.route('/landing')
+def landing():
+
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    
+    # Redirect employees to their dashboard
+    if session.get('user_role') != 'admin':
+        return redirect(url_for('employee_dashboard'))
 
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=DictCursor)
@@ -679,6 +766,56 @@ def landing():
         cur.close()
         conn.close()
 
+    # Add calendar data for employee view
+    calendar_data = None
+    leave_dates = {}
+    if user_role != 'admin':
+        import calendar as cal_module
+        
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=DictCursor)
+        try:
+            month = datetime.now().month
+            year = datetime.now().year
+            
+            # Fetch leave applications
+            cur.execute('''
+                SELECT * FROM leave_applications 
+                WHERE user_id = %s 
+                ORDER BY start_date
+            ''', (session['user_id'],))
+            user_leaves = cur.fetchall()
+            
+            # Build leave dates dictionary
+            for leave in user_leaves:
+                current_date = leave['start_date']
+                end_date = leave['end_date']
+                
+                while current_date <= end_date:
+                    date_key = current_date.strftime('%Y-%m-%d')
+                    if date_key not in leave_dates:
+                        leave_dates[date_key] = []
+                    
+                    leave_dates[date_key].append({
+                        'type': leave['leave_type'],
+                        'status': leave['status'],
+                        'id': leave['id']
+                    })
+                    current_date += timedelta(days=1)
+            
+            calendar_data = {
+                'calendar': cal_module.monthcalendar(year, month),
+                'month': month,
+                'year': year,
+                'month_name': cal_module.month_name[month],
+                'current_day': datetime.now().day,
+                'current_month': datetime.now().month,
+                'current_year': datetime.now().year
+            }
+        finally:
+            cur.close()
+            conn.close()
+
     return render_template('landing.html', 
                          employees=employees, 
                          leaves=leaves, 
@@ -686,7 +823,9 @@ def landing():
                          calculated_annual_leave=calculated_annual_leave,
                          user_role=user_role,
                          page=page,
-                         total_pages=total_pages if user_role == 'admin' else 1)
+                         total_pages=total_pages if user_role == 'admin' else 1,
+                         calendar_data=calendar_data,
+                         leave_dates=leave_dates)
 
 # Add to add_employee_form route
 @app.route('/add_employee_form')
@@ -1083,13 +1222,11 @@ def apply_leave():
 
     if request.method == 'POST':
         leave_type = request.form['leave_type']
-        start_date = request.form['start_date']
-        end_date = request.form['end_date']
+        selected_dates = request.form.getlist('selected_dates[]')
         comments = request.form.get('comments', '')
-        hours_worked_str = request.form.get('hours_worked', '')  # Hours worked that day
         document_path = None
 
-        # Handle file upload (keep existing)
+        # Handle file upload
         if 'document' in request.files:
             file = request.files['document']
             if file and allowed_file(file.filename):
@@ -1098,82 +1235,75 @@ def apply_leave():
                 document_path = filename
 
         try:
-            # Calculate leave days (keep existing)
-            from datetime import datetime, timedelta
-            start = datetime.strptime(start_date, '%Y-%m-%d')
-            end = datetime.strptime(end_date, '%Y-%m-%d')
+            if not selected_dates:
+                flash('Please select at least one date!', 'error')
+                return redirect(url_for('employee_dashboard'))
             
-            # Validation: Check if start or end date is weekend
-            if start.weekday() >= 5 or end.weekday() >= 5:
-                flash('Leave cannot start or end on a weekend!', 'error')
-                return redirect(url_for('apply_leave'))
+            # Sort dates
+            selected_dates.sort()
+            start_date = selected_dates[0]
+            end_date = selected_dates[-1]
             
-            # Parse hours worked (if provided)
-            hours_worked = None
-            if hours_worked_str:
-                try:
-                    hours_worked = float(hours_worked_str)
-                    if hours_worked < 0 or hours_worked > 8:
-                        flash('Hours worked must be between 0 and 8!', 'error')
-                        return redirect(url_for('apply_leave'))
-                    
-                    # Validation: Hours only for single day
-                    if start != end:
-                        flash('Partial day leave (hours) can only be for a single day!', 'error')
-                        return redirect(url_for('apply_leave'))
-                except ValueError:
-                    flash('Invalid hours value!', 'error')
-                    return redirect(url_for('apply_leave'))
-
-            # Calculate leave days
-            if hours_worked is not None:
-                # Partial day: Calculate based on hours worked
-                # If worked 4 hours out of 8, leave = 4/8 = 0.5 days
-                leave_days = hours_worked / 8.0
-            else:
-                # Full day(s): Count working days
-                leave_days = 0
-                current_day = start
-                while current_day <= end:
-                    if current_day.weekday() < 5:  # 0-4 are Mon-Fri
-                        leave_days += 1
-                    current_day += timedelta(days=1)
+            # Calculate total leave days
+            total_leave_days = 0
             
-            if leave_days == 0:
+            for date_str in selected_dates:
+                # Check if this date has partial hours
+                hours_key = f'hours_{date_str}'
+                hours_str = request.form.get(hours_key, '')
+                
+                if hours_str:
+                    # Partial day - hours off
+                    try:
+                        hours_off = float(hours_str)
+                        if hours_off < 0 or hours_off > 8:
+                            flash(f'Hours for {date_str} must be between 0 and 8!', 'error')
+                            return redirect(url_for('employee_dashboard'))
+                        
+                        # Convert hours to days (e.g., 2 hours = 0.25 days)
+                        total_leave_days += hours_off / 8.0
+                    except ValueError:
+                        flash(f'Invalid hours value for {date_str}!', 'error')
+                        return redirect(url_for('employee_dashboard'))
+                else:
+                    # Full day
+                    total_leave_days += 1.0
+            
+            if total_leave_days == 0:
                 flash('No leave days calculated!', 'error')
-                return redirect(url_for('apply_leave'))
+                return redirect(url_for('employee_dashboard'))
 
-            # ===== NEW VALIDATION =====
-            if leave_type == 'unpaid':
-                 cur.execute(f'''
+            # Update leave balance
+            if leave_type == 'Unpaid':
+                cur.execute('''
                     UPDATE leave_balance 
                     SET unpaid_leave = unpaid_leave + %s
                     WHERE user_id = %s
-                ''', (leave_days, session['user_id']))
+                ''', (total_leave_days, session['user_id']))
             else:
-                # Update with NO floor (allow negative)
+                # Deduct from appropriate leave type
+                leave_column = f"{leave_type.lower()}_leave"
                 cur.execute(f'''
                     UPDATE leave_balance 
-                    SET {leave_type}_leave = {leave_type}_leave - %s
+                    SET {leave_column} = {leave_column} - %s
                     WHERE user_id = %s
-                ''', (leave_days, session['user_id']))
-            # ===== END NEW CODE =====
+                ''', (total_leave_days, session['user_id']))
 
-            # Record application (keep existing)
+            # Record application
             cur.execute('''
                 INSERT INTO leave_applications 
                 (user_id, leave_type, start_date, end_date, comments, document_path, days, hours_worked)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-            ''', (session['user_id'], leave_type, start_date, end_date, comments, document_path, leave_days, hours_worked))
+            ''', (session['user_id'], leave_type, start_date, end_date, comments, document_path, total_leave_days, None))
 
             conn.commit()
-            flash('Leave applied successfully!', 'success')
-            return redirect(url_for('landing'))
+            flash(f'Leave applied successfully! Total: {total_leave_days:.2f} days', 'success')
+            return redirect(url_for('employee_dashboard'))
 
         except Exception as e:
             conn.rollback()
             flash(f'Error: {str(e)}', 'error')
-            return redirect(url_for('apply_leave'))
+            return redirect(url_for('employee_dashboard'))
 
         finally:
             cur.close()

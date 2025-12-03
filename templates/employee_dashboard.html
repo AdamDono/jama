@@ -1,0 +1,638 @@
+{% extends "base.html" %}
+
+{% block title %}My Dashboard{% endblock %}
+
+{% block content %}
+<style>
+    .leave-request-container {
+        background: white;
+        border-radius: 8px;
+        padding: 20px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .record-leave-header {
+        background: #4a5f7f;
+        color: white;
+        padding: 12px 20px;
+        margin: -20px -20px 20px -20px;
+        border-radius: 8px 8px 0 0;
+        font-weight: 600;
+    }
+
+    .calendar-section {
+        background: #f8f9fa;
+        padding: 15px;
+        border-radius: 6px;
+    }
+
+    .calendar-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+    }
+
+    .calendar-widget .day-number {
+        padding: 2px;
+        font-size: 14px;
+        font-weight: 600;
+        color: #264653;
+    }
+
+    .calendar-widget .leave-indicators {
+        display: flex;
+        justify-content: center;
+        gap: 3px;
+        margin-top: 4px;
+        min-height: 10px;
+    }
+
+    .calendar-widget .leave-indicator {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        display: inline-block;
+    }
+
+    .calendar-widget .leave-indicator.leave-annual {
+        background: #2196f3;
+    }
+
+    .calendar-widget .leave-indicator.leave-sick {
+        background: #f44336;
+    }
+
+    .calendar-widget .leave-indicator.leave-family {
+        background: #4caf50;
+    }
+
+    .calendar-widget .leave-indicator.leave-unpaid {
+        background: #ff9800;
+    }
+
+    .calendar-widget .leave-indicator.pending {
+        opacity: 0.6;
+        border: 2px dashed rgba(0, 0, 0, 0.3);
+        background: rgba(255, 255, 255, 0.5) !important;
+    }
+
+    .calendar-nav-btn {
+        background: none;
+        border: none;
+        font-size: 18px;
+        cursor: pointer;
+        padding: 5px 10px;
+    }
+
+    .calendar-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .calendar-table th {
+        background: #e9ecef;
+        padding: 8px;
+        text-align: center;
+        font-size: 13px;
+        font-weight: 600;
+    }
+
+    .calendar-table td {
+        padding: 8px;
+        text-align: center;
+        cursor: pointer;
+        border: 1px solid #dee2e6;
+        background: white;
+        position: relative;
+    }
+
+    .calendar-table td:hover {
+        background: #e3f2fd;
+    }
+
+    .calendar-table td.empty {
+        background: #f8f9fa;
+        cursor: default;
+    }
+
+    .calendar-table td.selected {
+        background: #90caf9 !important;
+        font-weight: bold;
+    }
+
+    .calendar-table td.selected-annual {
+        background: #2196f3 !important;
+        color: white;
+        font-weight: bold;
+    }
+
+    .calendar-table td.selected-sick {
+        background: #f44336 !important;
+        color: white;
+        font-weight: bold;
+    }
+
+    .calendar-table td.selected-family {
+        background: #4caf50 !important;
+        color: white;
+        font-weight: bold;
+    }
+
+    .calendar-table td.selected-unpaid {
+        background: #ff9800 !important;
+        color: white;
+        font-weight: bold;
+    }
+
+    .calendar-table td.weekend {
+        background: #f5f5f5;
+        color: #bdbdbd;
+        cursor: not-allowed !important;
+    }
+
+    .calendar-table td.weekend:hover {
+        background: #f5f5f5 !important;
+        transform: none !important;
+    }
+
+    .calendar-table td.today {
+        border: 2px solid #2196f3;
+    }
+
+    .calendar-table td.public-holiday {
+        background: #fff3cd;
+        font-size: 10px;
+        padding: 4px;
+    }
+
+    .form-section {
+        padding: 15px;
+    }
+
+    .date-inputs {
+        display: flex;
+        gap: 20px;
+        margin-bottom: 20px;
+    }
+
+    .date-input-group {
+        flex: 1;
+    }
+
+    .date-input-group label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: 600;
+        font-size: 14px;
+    }
+
+    .date-input-group input {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+    }
+
+    .selected-dates-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 20px;
+    }
+
+    .selected-dates-table th {
+        background: #f8f9fa;
+        padding: 10px;
+        text-align: left;
+        border: 1px solid #dee2e6;
+        font-weight: 600;
+    }
+
+    .selected-dates-table td {
+        padding: 10px;
+        border: 1px solid #dee2e6;
+    }
+
+    .selected-dates-table input[type="checkbox"] {
+        width: 18px;
+        height: 18px;
+    }
+
+    .action-buttons {
+        display: flex;
+        gap: 10px;
+    }
+
+    .btn-confirm {
+        background: #17a2b8;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+
+    .btn-cancel {
+        background: #6c757d;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+
+    .btn-remove {
+        background: #dc3545;
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+
+    .balance-section {
+        background: white;
+        border-radius: 8px;
+        padding: 20px;
+        margin-top: 20px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .balance-header {
+        background: #4a5f7f;
+        color: white;
+        padding: 12px 20px;
+        margin: -20px -20px 20px -20px;
+        border-radius: 8px 8px 0 0;
+        font-weight: 600;
+    }
+
+    .balance-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .balance-table th {
+        background: #f8f9fa;
+        padding: 12px;
+        text-align: left;
+        border: 1px solid #dee2e6;
+        font-weight: 600;
+    }
+
+    .balance-table td {
+        padding: 12px;
+        border: 1px solid #dee2e6;
+    }
+
+    .balance-note {
+        font-size: 12px;
+        color: #6c757d;
+        margin-top: 10px;
+    }
+</style>
+
+<div class="container mt-4">
+    <h3 class="mb-4">New Leave Request</h3>
+
+    <div class="leave-request-container">
+        <div class="record-leave-header">Record Leave</div>
+
+        <form id="leaveForm" action="/apply_leave" method="POST">
+            <div class="row">
+                <!-- LEFT: Calendar -->
+                <div class="col-md-5">
+                    <div class="mb-3">
+                        <label class="form-label">Type:</label>
+                        <select class="form-select" name="leave_type" id="leaveType" required
+                            onchange="updateCalendarColors()">
+                            <option value="Annual">Annual leave</option>
+                            <option value="Sick">Sick leave</option>
+                            <option value="Family">Family Responsibility</option>
+                            <option value="Unpaid">Unpaid leave</option>
+                        </select>
+                    </div>
+
+                    <p class="text-muted small">Select a date from the calendar to begin adding leave days.</p>
+
+                    <div class="calendar-section">
+                        <div class="calendar-header">
+                            <button type="button" class="calendar-nav-btn" onclick="changeMonth(-1)">‹</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary"
+                                onclick="goToToday()">today</button>
+                            <button type="button" class="calendar-nav-btn" onclick="changeMonth(-12)">«</button>
+                            <strong id="calendarMonth">{{ calendar_data.month_name }} {{ calendar_data.year }}</strong>
+                            <button type="button" class="calendar-nav-btn" onclick="changeMonth(12)">»</button>
+                            <button type="button" class="calendar-nav-btn" onclick="changeMonth(1)">›</button>
+                        </div>
+
+                        <table class="calendar-table">
+                            <thead>
+                                <tr>
+                                    <th>Sun</th>
+                                    <th>Mon</th>
+                                    <th>Tue</th>
+                                    <th>Wed</th>
+                                    <th>Thu</th>
+                                    <th>Fri</th>
+                                    <th>Sat</th>
+                                </tr>
+                            </thead>
+                            <tbody id="calendarBody">
+                                {% for week in calendar_data.calendar %}
+                                <tr>
+                                    {% for day in week %}
+                                    {% set day_index = loop.index0 %}
+                                    {% set is_weekend = day_index == 0 or day_index == 6 %}
+                                    {% set date_key = '%04d-%02d-%02d'|format(calendar_data.year, calendar_data.month,
+                                    day) if day != 0 else '' %}
+                                    {% set has_leave = date_key in leave_dates if date_key else false %}
+                                    <td class="{% if day == 0 %}empty{% endif %} 
+                                               {% if is_weekend and day != 0 %}weekend{% endif %}
+                                               {% if day == calendar_data.current_day and calendar_data.month == calendar_data.current_month and calendar_data.year == calendar_data.current_year %}today{% endif %}"
+                                        data-date="{% if day != 0 %}{{ date_key }}{% endif %}"
+                                        data-is-weekend="{% if is_weekend %}true{% else %}false{% endif %}"
+                                        onclick="{% if day != 0 and not is_weekend %}toggleDate('{{ date_key }}'){% endif %}">
+                                        {% if day != 0 %}
+                                        <div style="position: relative;">
+                                            <div class="day-number">{{ day }}</div>
+                                            {% if has_leave %}
+                                            <div class="leave-indicators">
+                                                {% for leave in leave_dates[date_key] %}
+                                                {% set leave_color = '#2196f3' if leave.type|lower == 'annual' else
+                                                ('#f44336' if leave.type|lower == 'sick' else ('#4caf50' if
+                                                leave.type|lower == 'family' else '#ff9800')) %}
+                                                <span class="leave-indicator"
+                                                    title="{{ leave.type }} - {{ leave.status }}"
+                                                    style="background: {{ leave_color }} !important; 
+                                                             width: 12px; height: 12px; 
+                                                             display: inline-block; 
+                                                             border-radius: 50%;
+                                                             {% if leave.status == 'Pending' %}opacity: 0.6; border: 2px dashed rgba(0,0,0,0.3);{% endif %}"></span>
+                                                {% endfor %}
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                        {% endif %}
+                                    </td>
+                                    {% endfor %}
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+
+                        <!-- Legend -->
+                        <div class="mt-3 p-2" style="background: white; border-radius: 4px;">
+                            <div class="d-flex flex-wrap gap-3" style="font-size: 12px;">
+                                <div class="d-flex align-items-center gap-1">
+                                    <span
+                                        style="width: 16px; height: 16px; background: #2196f3; display: inline-block; border-radius: 2px;"></span>
+                                    <span>Annual Leave</span>
+                                </div>
+                                <div class="d-flex align-items-center gap-1">
+                                    <span
+                                        style="width: 16px; height: 16px; background: #f44336; display: inline-block; border-radius: 2px;"></span>
+                                    <span>Sick Leave</span>
+                                </div>
+                                <div class="d-flex align-items-center gap-1">
+                                    <span
+                                        style="width: 16px; height: 16px; background: #4caf50; display: inline-block; border-radius: 2px;"></span>
+                                    <span>Family Leave</span>
+                                </div>
+                                <div class="d-flex align-items-center gap-1">
+                                    <span
+                                        style="width: 16px; height: 16px; background: #ff9800; display: inline-block; border-radius: 2px;"></span>
+                                    <span>Unpaid Leave</span>
+                                </div>
+                                <div class="d-flex align-items-center gap-1">
+                                    <span
+                                        style="width: 16px; height: 16px; background: #90caf9; display: inline-block; border-radius: 2px; border: 2px dashed #2196f3;"></span>
+                                    <span>Pending (Dashed)</span>
+                                </div>
+                                <div class="d-flex align-items-center gap-1">
+                                    <span
+                                        style="width: 16px; height: 16px; background: #e0e0e0; display: inline-block; border-radius: 2px; opacity: 0.5;"></span>
+                                    <span>Rejected (Faded)</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- RIGHT: Form -->
+                <div class="col-md-7">
+                    <div class="form-section">
+                        <div class="date-inputs">
+                            <div class="date-input-group">
+                                <label>From:</label>
+                                <input type="date" class="form-control" id="fromDate" name="start_date" readonly>
+                            </div>
+                            <div class="date-input-group">
+                                <label>To:</label>
+                                <input type="date" class="form-control" id="toDate" name="end_date" readonly>
+                            </div>
+                        </div>
+
+                        <table class="selected-dates-table">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th style="width: 100px; text-align: center;">Partial</th>
+                                    <th style="width: 100px; text-align: center;">Hours Off</th>
+                                </tr>
+                            </thead>
+                            <tbody id="selectedDatesBody">
+                                <tr>
+                                    <td colspan="3" class="text-center text-muted">No dates selected</td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <div class="action-buttons">
+                            <button type="submit" class="btn-confirm">Confirm</button>
+                            <button type="button" class="btn-cancel"
+                                onclick="window.location.href='/landing'">Cancel</button>
+                            <button type="button" class="btn-remove" onclick="clearAllDates()">Remove Dates</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Leave Balances -->
+    <div class="balance-section">
+        <div class="balance-header">Leave Balances</div>
+
+        <table class="balance-table">
+            <thead>
+                <tr>
+                    <th>Type</th>
+                    <th>Days</th>
+                    <th>Last Updated</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Annual</td>
+                    <td>{{ "%.2f"|format(calculated_annual_leave) }}</td>
+                    <td>{{ leave_balance['last_annual_reset'].strftime('%Y-%m-%d') if leave_balance and
+                        leave_balance['last_annual_reset'] else 'N/A' }}</td>
+                </tr>
+                <tr>
+                    <td>Family Responsibility</td>
+                    <td>{{ leave_balance['family_leave'] if leave_balance else 3 }}</td>
+                    <td>{{ leave_balance['last_annual_reset'].strftime('%Y-%m-%d') if leave_balance and
+                        leave_balance['last_annual_reset'] else 'N/A' }}</td>
+                </tr>
+                <tr>
+                    <td>Sick</td>
+                    <td>{{ leave_balance['sick_leave'] if leave_balance else 30 }}</td>
+                    <td>{{ leave_balance['last_annual_reset'].strftime('%Y-%m-%d') if leave_balance and
+                        leave_balance['last_annual_reset'] else 'N/A' }}</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <p class="balance-note">These balances take into account pending leave requests.</p>
+    </div>
+</div>
+
+<script>
+    let selectedDates = new Set();
+    let currentMonth = {{ calendar_data.month }};
+    let currentYear = {{ calendar_data.year }};
+
+    function toggleDate(dateStr) {
+        const td = document.querySelector(`td[data-date="${dateStr}"]`);
+
+        // Check if it's a weekend
+        if (td && td.dataset.isWeekend === 'true') {
+            alert('Weekends cannot be selected for leave');
+            return;
+        }
+
+        if (selectedDates.has(dateStr)) {
+            selectedDates.delete(dateStr);
+            updateCalendarColors();
+        } else {
+            selectedDates.add(dateStr);
+            updateCalendarColors();
+        }
+        updateSelectedDatesTable();
+        updateDateRange();
+    }
+
+    function updateCalendarColors() {
+        const leaveType = document.getElementById('leaveType').value;
+        let colorClass = 'selected-annual';
+
+        if (leaveType === 'Sick') colorClass = 'selected-sick';
+        else if (leaveType === 'Family') colorClass = 'selected-family';
+        else if (leaveType === 'Unpaid') colorClass = 'selected-unpaid';
+
+        // Remove all selected classes
+        document.querySelectorAll('.calendar-table td').forEach(td => {
+            td.classList.remove('selected', 'selected-annual', 'selected-sick', 'selected-family', 'selected-unpaid');
+        });
+
+        // Add appropriate color class to selected dates
+        selectedDates.forEach(date => {
+            const td = document.querySelector(`td[data-date="${date}"]`);
+            if (td) {
+                td.classList.add(colorClass);
+            }
+        });
+    }
+
+    function updateSelectedDatesTable() {
+        const tbody = document.getElementById('selectedDatesBody');
+
+        if (selectedDates.size === 0) {
+            tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted">No dates selected</td></tr>';
+            return;
+        }
+
+        const sortedDates = Array.from(selectedDates).sort();
+        tbody.innerHTML = sortedDates.map(date => `
+        <tr>
+            <td>${date}</td>
+            <td style="text-align: center;">
+                <input type="checkbox" name="partial_${date}" value="1" onchange="toggleHoursInput('${date}', this.checked)">
+            </td>
+            <td style="text-align: center;">
+                <input type="number" id="hours_${date}" name="hours_${date}" min="1" max="8" step="0.5" 
+                       class="form-control form-control-sm" style="width: 70px; display: none;" placeholder="8">
+            </td>
+        </tr>
+    `).join('');
+    }
+
+    function toggleHoursInput(date, isChecked) {
+        const hoursInput = document.getElementById(`hours_${date}`);
+        if (hoursInput) {
+            hoursInput.style.display = isChecked ? 'inline-block' : 'none';
+            if (isChecked) {
+                hoursInput.required = true;
+                hoursInput.focus();
+            } else {
+                hoursInput.required = false;
+                hoursInput.value = '';
+            }
+        }
+    }
+
+    function updateDateRange() {
+        if (selectedDates.size === 0) {
+            document.getElementById('fromDate').value = '';
+            document.getElementById('toDate').value = '';
+            return;
+        }
+
+        const sortedDates = Array.from(selectedDates).sort();
+        document.getElementById('fromDate').value = sortedDates[0];
+        document.getElementById('toDate').value = sortedDates[sortedDates.length - 1];
+    }
+
+    function clearAllDates() {
+        selectedDates.clear();
+        updateCalendarColors();
+        updateSelectedDatesTable();
+        updateDateRange();
+    }
+
+    function changeMonth(delta) {
+        currentMonth += delta;
+        if (currentMonth > 12) {
+            currentMonth = 1;
+            currentYear++;
+        } else if (currentMonth < 1) {
+            currentMonth = 12;
+            currentYear--;
+        }
+        window.location.href = `?month=${currentMonth}&year=${currentYear}`;
+    }
+
+    function goToToday() {
+        window.location.href = '/employee_dashboard';
+    }
+
+    // Form submission handler
+    document.getElementById('leaveForm').addEventListener('submit', function (e) {
+        if (selectedDates.size === 0) {
+            e.preventDefault();
+            alert('Please select at least one date');
+            return false;
+        }
+
+        // Add selected dates as hidden inputs
+        selectedDates.forEach(date => {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'selected_dates[]';
+            input.value = date;
+            this.appendChild(input);
+        });
+    });
+</script>
+{% endblock %}
