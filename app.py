@@ -684,7 +684,9 @@ def employee_dashboard():
         year = int(request.args.get('year'))
         month = int(request.args.get('month'))
         
-    cal = calendar.monthcalendar(year, month)
+    # Create a calendar instance starting on Sunday (6)
+    cal_obj = calendar.Calendar(firstweekday=6)
+    cal = cal_obj.monthdayscalendar(year, month)
     month_name = calendar.month_name[month]
     
     calendar_data = {
