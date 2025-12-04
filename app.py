@@ -565,13 +565,52 @@ def logout():
 
 
 def get_public_holidays():
-    """Fetch all public holidays from database"""
+    """Fetch all public holidays from database and expand recurring ones"""
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=DictCursor)
-    cur.execute('SELECT * FROM public_holidays ORDER BY holiday_date')
-    holidays = {h['holiday_date'].strftime('%Y-%m-%d'): h['holiday_name'] for h in cur.fetchall()}
+    cur.execute('SELECT * FROM public_holidays')
+    rows = cur.fetchall()
     cur.close()
     conn.close()
+
+    holidays = {}
+    current_year = datetime.now().year
+    # Generate for 10 years back and 10 years forward
+    years_range = range(current_year - 5, current_year + 11)
+
+    for row in rows:
+        date_obj = row['holiday_date']
+        name = row['holiday_name']
+        is_recurring = row['is_recurring']
+
+        if is_recurring:
+            # Generate for all years in range
+            for year in years_range:
+                try:
+                    # Handle leap years etc by using the same month/day
+                    new_date = date_obj.replace(year=year)
+                    holidays[new_date.strftime('%Y-%m-%d')] = name
+                except ValueError:
+                    # Handle Feb 29 on non-leap years if applicable
+                    continue
+        else:
+            # Add the specific non-recurring date
+            holidays[date_obj.strftime('%Y-%m-%d')] = name
+            
+    # Apply Sunday Rule: If a public holiday falls on a Sunday, the following Monday is a public holiday
+    observed_holidays = {}
+    for date_str, name in holidays.items():
+        date_obj = datetime.strptime(date_str, '%Y-%m-%d').date()
+        if date_obj.weekday() == 6:  # Sunday
+            monday_date = date_obj + timedelta(days=1)
+            monday_str = monday_date.strftime('%Y-%m-%d')
+            
+            # Only add if Monday is not already a holiday
+            if monday_str not in holidays:
+                observed_holidays[monday_str] = f"{name} (Observed)"
+    
+    holidays.update(observed_holidays)
+            
     return holidays
 
 @app.route('/employee_dashboard')
