@@ -667,6 +667,14 @@ def employee_dashboard():
     # Get public holidays
     public_holidays = get_public_holidays()
     
+    # Fetch all leave history for this employee (all statuses)
+    cur.execute('''
+        SELECT * FROM leave_applications 
+        WHERE user_id = %s 
+        ORDER BY created_at DESC
+    ''', (session['user_id'],))
+    leave_history = cur.fetchall()
+    
     # Calendar logic
     year = datetime.now().year
     month = datetime.now().month
@@ -697,7 +705,8 @@ def employee_dashboard():
                          calculated_annual_leave=calculated_annual_leave,
                          calendar_data=calendar_data,
                          leave_dates=leave_dates,
-                         public_holidays=public_holidays)
+                         public_holidays=public_holidays,
+                         leave_history=leave_history)
 
 @app.route('/landing')
 def landing():
