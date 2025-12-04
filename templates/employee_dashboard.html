@@ -9,6 +9,8 @@
         border-radius: 8px;
         padding: 20px;
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        max-width: 1400px;
+        margin: 0 auto;
     }
 
     .record-leave-header {
@@ -24,6 +26,7 @@
         background: #f8f9fa;
         padding: 15px;
         border-radius: 6px;
+        max-width: 100%;
     }
 
     .calendar-header {
@@ -87,28 +90,36 @@
 
     .calendar-table {
         width: 100%;
-        border-collapse: collapse;
+        border-collapse: separate;
+        border-spacing: 8px;
     }
 
     .calendar-table th {
-        background: #e9ecef;
-        padding: 8px;
+        background: #264653;
+        color: white;
+        padding: 15px;
         text-align: center;
-        font-size: 13px;
+        border-radius: 5px;
         font-weight: 600;
+        font-size: 14px;
     }
 
     .calendar-table td {
-        padding: 8px;
-        text-align: center;
-        cursor: pointer;
-        border: 1px solid #dee2e6;
-        background: white;
+        background: #f8f9fa;
+        padding: 0;
+        height: 120px;
+        max-height: 120px;
+        overflow: hidden;
+        vertical-align: top;
+        border-radius: 5px;
         position: relative;
+        transition: all 0.3s ease;
+        cursor: pointer;
     }
 
     .calendar-table td:hover {
-        background: #e3f2fd;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
     }
 
     .calendar-widget td.weekend {
@@ -182,12 +193,14 @@
 
     .date-inputs {
         display: flex;
-        gap: 20px;
+        gap: 10px;
         margin-bottom: 20px;
+        flex-wrap: nowrap;
     }
 
     .date-input-group {
         flex: 1;
+        min-width: 0;
     }
 
     .date-input-group label {
@@ -260,6 +273,144 @@
         cursor: pointer;
     }
 
+    /* Desktop: Wider calendar */
+    .calendar-section {
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+
+    .calendar-table td {
+        height: 80px;
+        vertical-align: top;
+    }
+
+    /* Mobile Responsiveness */
+    @media (max-width: 768px) {
+        .leave-request-container {
+            padding: 15px;
+        }
+
+        .record-leave-header {
+            padding: 10px 15px;
+            margin: -15px -15px 15px -15px;
+            font-size: 16px;
+        }
+
+        .calendar-section {
+            padding: 10px;
+            max-width: 100%;
+        }
+
+        .calendar-header {
+            flex-direction: column;
+            gap: 10px;
+            text-align: center;
+        }
+
+        .calendar-nav-btn {
+            font-size: 16px;
+            padding: 8px 12px;
+        }
+
+        .calendar-table th {
+            padding: 6px 2px;
+            font-size: 11px;
+        }
+
+        .calendar-table td {
+            padding: 4px 2px;
+            height: 60px;
+            font-size: 12px;
+        }
+
+        .calendar-widget .day-number {
+            font-size: 12px;
+        }
+
+        .calendar-widget .leave-indicator {
+            width: 8px;
+            height: 8px;
+        }
+
+        .date-inputs {
+            flex-direction: row;
+            flex-wrap: nowrap;
+            gap: 8px;
+        }
+
+        .date-input-group label {
+            font-size: 12px;
+            margin-bottom: 3px;
+        }
+
+        .date-input-group input {
+            font-size: 14px;
+            padding: 6px;
+        }
+
+        .action-buttons {
+            flex-direction: column;
+        }
+
+        .btn-confirm,
+        .btn-cancel {
+            width: 100%;
+        }
+
+        .selected-dates-table {
+            font-size: 14px;
+        }
+
+        .selected-dates-table th,
+        .selected-dates-table td {
+            padding: 8px 4px;
+        }
+
+        .balance-section {
+            margin-top: 20px;
+        }
+
+        .balance-table {
+            font-size: 14px;
+        }
+
+        .balance-table th,
+        .balance-table td {
+            padding: 8px 4px;
+        }
+    }
+
+    /* Tablet Responsiveness */
+    @media (min-width: 769px) and (max-width: 1024px) {
+        .calendar-section {
+            max-width: 900px;
+        }
+
+        .calendar-table td {
+            height: 70px;
+        }
+
+        .date-inputs {
+            gap: 15px;
+        }
+    }
+
+    /* Large Desktop */
+    @media (min-width: 1400px) {
+        .calendar-section {
+            max-width: 1400px;
+        }
+
+        .calendar-table td {
+            height: 100px;
+            padding: 12px;
+        }
+
+        .calendar-widget .day-number {
+            font-size: 16px;
+        }
+    }
+
     .balance-section {
         background: white;
         border-radius: 8px;
@@ -311,7 +462,7 @@
         <form id="leaveForm" action="/apply_leave" method="POST">
             <div class="row">
                 <!-- LEFT: Calendar -->
-                <div class="col-md-5">
+                <div class="col-md-8">
                     <div class="mb-3">
                         <label class="form-label">Type:</label>
                         <select class="form-select" name="leave_type" id="leaveType" required
@@ -439,8 +590,8 @@
                     </div>
                 </div>
 
-                <!-- RIGHT: Form -->
-                <div class="col-md-7">
+                <!-- RIGHT: Selected Dates & Form -->
+                <div class="col-md-4">
                     <div class="form-section">
                         <div class="date-inputs">
                             <div class="date-input-group">
