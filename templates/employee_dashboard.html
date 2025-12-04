@@ -111,13 +111,23 @@
         background: #e3f2fd;
     }
 
-    .calendar-table td.empty {
-        background: #f8f9fa;
-        cursor: default;
+    .calendar-widget td.weekend {
+        background-color: #f8f9fa;
+        color: #adb5bd;
+        cursor: not-allowed;
     }
 
-    .calendar-table td.selected {
-        background: #90caf9 !important;
+    .calendar-widget td.public-holiday {
+        background-color: #ffebee;
+        /* Light red background */
+        color: #c62828;
+        cursor: not-allowed;
+        position: relative;
+    }
+
+    .calendar-widget td.selected {
+        background-color: #e3f2fd;
+        color: #0d6efd;
         font-weight: bold;
     }
 
@@ -347,15 +357,25 @@
                                     {% set date_key = '%04d-%02d-%02d'|format(calendar_data.year, calendar_data.month,
                                     day) if day != 0 else '' %}
                                     {% set has_leave = date_key in leave_dates if date_key else false %}
+                                    {% set is_holiday = date_key in public_holidays if date_key else false %}
+                                    {% set holiday_name = public_holidays[date_key] if is_holiday else '' %}
                                     <td class="{% if day == 0 %}empty{% endif %} 
                                                {% if is_weekend and day != 0 %}weekend{% endif %}
+                                               {% if is_holiday %}public-holiday{% endif %}
                                                {% if day == calendar_data.current_day and calendar_data.month == calendar_data.current_month and calendar_data.year == calendar_data.current_year %}today{% endif %}"
                                         data-date="{% if day != 0 %}{{ date_key }}{% endif %}"
                                         data-is-weekend="{% if is_weekend %}true{% else %}false{% endif %}"
-                                        onclick="{% if day != 0 and not is_weekend %}toggleDate('{{ date_key }}'){% endif %}">
+                                        data-is-holiday="{% if is_holiday %}true{% else %}false{% endif %}"
+                                        title="{% if is_holiday %}{{ holiday_name }}{% endif %}"
+                                        onclick="{% if day != 0 and not is_weekend and not is_holiday %}toggleDate('{{ date_key }}'){% endif %}">
                                         {% if day != 0 %}
                                         <div style="position: relative;">
                                             <div class="day-number">{{ day }}</div>
+                                            {% if is_holiday %}
+                                            <div class="holiday-name"
+                                                style="font-size: 8px; color: #d32f2f; position: absolute; bottom: 2px; width: 100%; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                                {{ holiday_name }}</div>
+                                            {% endif %}
                                             {% if has_leave %}
                                             <div class="leave-indicators">
                                                 {% for leave in leave_dates[date_key] %}
@@ -509,6 +529,11 @@
         // Check if it's a weekend
         if (td && td.dataset.isWeekend === 'true') {
             alert('Weekends cannot be selected for leave');
+            return;
+        }
+
+        if (td && td.dataset.isHoliday === 'true') {
+            alert('Public holidays cannot be selected for leave');
             return;
         }
 

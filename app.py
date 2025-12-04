@@ -7,9 +7,14 @@ from psycopg2.extras import DictCursor
 import psycopg2.extras  # Add this line
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
 from datetime import datetime, timedelta
+import calendar
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 app = Flask(__name__)
-app.secret_key = os.urandom(24)
+app.secret_key = os.getenv('FLASK_SECRET_KEY', os.urandom(24))
 
 UPLOAD_FOLDER = 'static/uploads'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
@@ -27,6 +32,8 @@ def calculate_annual_leave(start_date):
     - Daily accrual: 15 days ÷ 365 days = 0.0411 days per day
     - Resets annually on anniversary date
     - Allows carry-over up to 30 days maximum
+    
+    Returns: Accrued leave for CURRENT YEAR ONLY (not total balance)
     """
     from datetime import datetime
     
@@ -49,7 +56,7 @@ def calculate_annual_leave(start_date):
     years_completed = days_elapsed // 365
     days_in_current_year = days_elapsed % 365
     
-    # Calculate accrued leave for current year
+    # Calculate accrued leave for current year only
     daily_accrual_rate = 15.0 / 365.0  # 0.0411 days per day
     current_year_accrual = days_in_current_year * daily_accrual_rate
     
@@ -108,18 +115,16 @@ def log_action(action_type, performed_by, target_id=None, target_type=None, deta
         print(f"Audit log error: {e}")
 
 
-DATABASE = {
-    'dbname': 'jama',
-    'user': 'postgres',
-    'password': 'Fliph106',
-    'host': 'localhost',
-     'port': '5433',  
-}
-
 
 def get_db_connection():
- 
-    return psycopg2.connect(**DATABASE)
+    """Get database connection using environment variables"""
+    return psycopg2.connect(
+        host=os.getenv('DB_HOST', 'localhost'),
+        database=os.getenv('DB_NAME', 'jama'),
+        user=os.getenv('DB_USER', 'postgres'),
+        password=os.getenv('DB_PASSWORD'),
+        port=os.getenv('DB_PORT', '5432')
+    )
 
 def log_audit(admin_id, action, target_type, target_id, details=None):
     """Helper function to log admin actions"""
@@ -559,86 +564,101 @@ def logout():
 
 
 
+def get_public_holidays():
+    """Fetch all public holidays from database"""
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=DictCursor)
+    cur.execute('SELECT * FROM public_holidays ORDER BY holiday_date')
+    holidays = {h['holiday_date'].strftime('%Y-%m-%d'): h['holiday_name'] for h in cur.fetchall()}
+    cur.close()
+    conn.close()
+    return holidays
+
 @app.route('/employee_dashboard')
 def employee_dashboard():
     if 'user_id' not in session:
         return redirect(url_for('login'))
     
-    if session.get('user_role') == 'admin':
+    if 'user_id' not in session or session.get('user_role') != 'employee':
         return redirect(url_for('landing'))
-    
-    import calendar as cal_module
-    
-    # Get month and year from query params
-    month = request.args.get('month', datetime.now().month, type=int)
-    year = request.args.get('year', datetime.now().year, type=int)
-    
+
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=DictCursor)
     
-    try:
-        # Get leave balance
-        cur.execute('SELECT * FROM leave_balance WHERE user_id = %s', (session['user_id'],))
-        leave_balance = cur.fetchone()
+    # Fetch user's leave balance
+    cur.execute('SELECT * FROM leave_balance WHERE user_id = %s', (session['user_id'],))
+    leave_balance = cur.fetchone()
+    
+    # Get employee details for annual leave calculation
+    cur.execute('SELECT * FROM employees WHERE user_id = %s', (session['user_id'],))
+    employee = cur.fetchone()
+    
+    # Calculate annual leave
+    if employee and employee.get('start_date'):
+        accrued_annual_leave = calculate_annual_leave(employee['start_date'])
+        stored_balance = float(leave_balance['annual_leave']) if leave_balance else 0.0
+        calculated_annual_leave = float(accrued_annual_leave) + stored_balance
+    else:
+        calculated_annual_leave = 0
+    
+    # Fetch user's leave applications to show on calendar
+    cur.execute('''
+        SELECT * FROM leave_applications 
+        WHERE user_id = %s 
+        AND status != 'Rejected'
+    ''', (session['user_id'],))
+    leave_apps = cur.fetchall()
+    
+    # Process leave applications into a dictionary keyed by date
+    leave_dates = {}
+    for app in leave_apps:
+        start = app['start_date']
+        end = app['end_date']
+        delta = (end - start).days + 1
+        for i in range(delta):
+            day = start + timedelta(days=i)
+            date_str = day.strftime('%Y-%m-%d')
+            if date_str not in leave_dates:
+                leave_dates[date_str] = []
+            leave_dates[date_str].append({
+                'type': app['leave_type'],
+                'status': app['status']
+            })
+
+    # Get public holidays
+    public_holidays = get_public_holidays()
+    
+    # Calendar logic
+    year = datetime.now().year
+    month = datetime.now().month
+    
+    # Handle month navigation
+    if request.args.get('year') and request.args.get('month'):
+        year = int(request.args.get('year'))
+        month = int(request.args.get('month'))
         
-        # Get employee details for annual leave calculation
-        cur.execute('SELECT * FROM employees WHERE user_id = %s', (session['user_id'],))
-        employee = cur.fetchone()
-        
-        # Calculate annual leave
-        if employee and employee.get('start_date'):
-            accrued_annual_leave = calculate_annual_leave(employee['start_date'])
-            stored_balance = float(leave_balance['annual_leave']) if leave_balance else 0.0
-            calculated_annual_leave = float(accrued_annual_leave) + stored_balance
-        else:
-            calculated_annual_leave = 0
-        
-        # Fetch user's leave applications to show on calendar
-        cur.execute('''
-            SELECT * FROM leave_applications 
-            WHERE user_id = %s 
-            AND status IN ('Approved', 'Pending')
-            ORDER BY start_date
-        ''', (session['user_id'],))
-        user_leaves = cur.fetchall()
-        
-        # Build leave dates dictionary for calendar
-        leave_dates = {}
-        for leave in user_leaves:
-            current_date = leave['start_date']
-            end_date = leave['end_date']
-            
-            while current_date <= end_date:
-                date_key = current_date.strftime('%Y-%m-%d')
-                if date_key not in leave_dates:
-                    leave_dates[date_key] = []
-                
-                leave_dates[date_key].append({
-                    'type': leave['leave_type'],
-                    'status': leave['status'],
-                    'id': leave['id']
-                })
-                current_date += timedelta(days=1)
-        
-        # Build calendar data
-        calendar_data = {
-            'calendar': cal_module.monthcalendar(year, month),
-            'month': month,
-            'year': year,
-            'month_name': cal_module.month_name[month],
-            'current_day': datetime.now().day,
-            'current_month': datetime.now().month,
-            'current_year': datetime.now().year
-        }
-        
-        return render_template('employee_dashboard.html',
-                             leave_balance=leave_balance,
-                             calculated_annual_leave=calculated_annual_leave,
-                             calendar_data=calendar_data,
-                             leave_dates=leave_dates)
-    finally:
-        cur.close()
-        conn.close()
+    cal = calendar.monthcalendar(year, month)
+    month_name = calendar.month_name[month]
+    
+    calendar_data = {
+        'year': year,
+        'month': month,
+        'month_name': month_name,
+        'calendar': cal,
+        'current_day': datetime.now().day,
+        'current_month': datetime.now().month,
+        'current_year': datetime.now().year
+    }
+    
+    cur.close()
+    conn.close()
+    
+    return render_template('employee_dashboard.html', 
+                         leave_balance=leave_balance,
+                         calculated_annual_leave=calculated_annual_leave,
+                         calendar_data=calendar_data,
+                         leave_dates=leave_dates,
+                         public_holidays=public_holidays)
 
 @app.route('/landing')
 def landing():
@@ -1114,16 +1134,9 @@ def approve_leave(leave_id):
         # Calculate leave days to deduct
         leave_type = leave_app['leave_type'].lower()
         
-        # Calculate the number of days
-        if leave_app.get('is_half_day') or leave_app.get('hours'):
-            # Partial day leave - convert hours to days
-            hours = float(leave_app.get('hours', 0))
-            days_to_deduct = hours / 8.0
-        else:
-            # Full day leave
-            start_date = leave_app['start_date']
-            end_date = leave_app['end_date']
-            days_to_deduct = float((end_date - start_date).days + 1)
+        # Use the stored total days from the application
+        # This correctly handles partial days and multi-day requests
+        days_to_deduct = float(leave_app['days'])
         
         # Deduct from appropriate leave balance
         if 'annual' in leave_type:
@@ -1169,7 +1182,7 @@ def reject_leave(leave_id):
     cur = conn.cursor(cursor_factory=DictCursor)
 
     try:
-        # Get leave details to refund balance
+        # Get leave details
         cur.execute("SELECT * FROM leave_applications WHERE id = %s", (leave_id,))
         leave = cur.fetchone()
         
@@ -1177,20 +1190,11 @@ def reject_leave(leave_id):
             flash('Leave application not found', 'error')
             return redirect(url_for('admin_dashboard'))
 
-        if leave['status'] != 'pending':
+        if leave['status'] != 'Pending':
              flash('Can only reject pending leaves', 'error')
              return redirect(url_for('admin_dashboard'))
 
-        # Calculate days to refund
-        leave_days = (leave['end_date'] - leave['start_date']).days + 1
-        leave_type = leave['leave_type']
-
-        # Refund balance
-        cur.execute(f'''
-            UPDATE leave_balance 
-            SET {leave_type}_leave = {leave_type}_leave + %s
-            WHERE user_id = %s
-        ''', (leave_days, leave['user_id']))
+        # NOTE: No balance refund needed since balance is only deducted on approval
 
         # Update status
         cur.execute("UPDATE leave_applications SET status = 'Rejected' WHERE id = %s", (leave_id,))
@@ -1198,10 +1202,11 @@ def reject_leave(leave_id):
         conn.commit()
         
         # Log audit
+        leave_days = leave.get('days', 0)
         log_audit(session['user_id'], 'Reject Leave', 'Leave Application', leave_id, 
-                 f"Rejected {leave_type} leave for {leave_days} days")
+                 f"Rejected {leave['leave_type']} leave for {leave_days} days")
         
-        flash('Leave rejected and balance refunded', 'success')
+        flash('Leave rejected', 'success')
 
     except Exception as e:
         conn.rollback()
@@ -1273,21 +1278,8 @@ def apply_leave():
                 flash('No leave days calculated!', 'error')
                 return redirect(url_for('employee_dashboard'))
 
-            # Update leave balance
-            if leave_type == 'Unpaid':
-                cur.execute('''
-                    UPDATE leave_balance 
-                    SET unpaid_leave = unpaid_leave + %s
-                    WHERE user_id = %s
-                ''', (total_leave_days, session['user_id']))
-            else:
-                # Deduct from appropriate leave type
-                leave_column = f"{leave_type.lower()}_leave"
-                cur.execute(f'''
-                    UPDATE leave_balance 
-                    SET {leave_column} = {leave_column} - %s
-                    WHERE user_id = %s
-                ''', (total_leave_days, session['user_id']))
+            # NOTE: Balance is NOT deducted here - only when admin approves
+            # This prevents double-deduction bug
 
             # Record application
             cur.execute('''
@@ -1297,7 +1289,7 @@ def apply_leave():
             ''', (session['user_id'], leave_type, start_date, end_date, comments, document_path, total_leave_days, None))
 
             conn.commit()
-            flash(f'Leave applied successfully! Total: {total_leave_days:.2f} days', 'success')
+            flash(f'Leave applied successfully! Total: {total_leave_days:.2f} days (Pending approval)', 'success')
             return redirect(url_for('employee_dashboard'))
 
         except Exception as e:
@@ -1398,3 +1390,84 @@ def cancel_leave(leave_id):
     finally:
         cur.close()
         conn.close()
+
+@app.route('/admin/holidays')
+def admin_holidays():
+    if 'user_id' not in session or session.get('user_role') != 'admin':
+        return redirect(url_for('landing'))
+    
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=DictCursor)
+    
+    cur.execute('SELECT * FROM public_holidays ORDER BY holiday_date DESC')
+    holidays = cur.fetchall()
+    
+    cur.close()
+    conn.close()
+    
+    return render_template('admin_holidays.html', holidays=holidays)
+
+@app.route('/admin/holidays/add', methods=['POST'])
+def add_holiday():
+    if 'user_id' not in session or session.get('user_role') != 'admin':
+        return redirect(url_for('landing'))
+    
+    holiday_name = request.form.get('holiday_name')
+    holiday_date = request.form.get('holiday_date')
+    is_recurring = request.form.get('is_recurring') == 'on'
+    
+    if not holiday_name or not holiday_date:
+        flash('Name and date are required', 'error')
+        return redirect(url_for('admin_holidays'))
+    
+    conn = get_db_connection()
+    cur = conn.cursor()
+    
+    try:
+        cur.execute('''
+            INSERT INTO public_holidays (holiday_name, holiday_date, is_recurring)
+            VALUES (%s, %s, %s)
+        ''', (holiday_name, holiday_date, is_recurring))
+        
+        conn.commit()
+        flash('Holiday added successfully', 'success')
+        
+        log_audit(session['user_id'], 'Add Holiday', 'Public Holiday', None, 
+                 f"Added holiday: {holiday_name} on {holiday_date}")
+                 
+    except Exception as e:
+        conn.rollback()
+        flash(f'Error adding holiday: {str(e)}', 'error')
+    finally:
+        cur.close()
+        conn.close()
+        
+    return redirect(url_for('admin_holidays'))
+
+@app.route('/admin/holidays/delete/<int:holiday_id>', methods=['POST'])
+def delete_holiday(holiday_id):
+    if 'user_id' not in session or session.get('user_role') != 'admin':
+        return redirect(url_for('landing'))
+    
+    conn = get_db_connection()
+    cur = conn.cursor()
+    
+    try:
+        cur.execute('DELETE FROM public_holidays WHERE id = %s', (holiday_id,))
+        conn.commit()
+        flash('Holiday deleted successfully', 'success')
+        
+        log_audit(session['user_id'], 'Delete Holiday', 'Public Holiday', holiday_id, 
+                 "Deleted public holiday")
+                 
+    except Exception as e:
+        conn.rollback()
+        flash(f'Error deleting holiday: {str(e)}', 'error')
+    finally:
+        cur.close()
+        conn.close()
+        
+    return redirect(url_for('admin_holidays'))
+
+if __name__ == '__main__':
+    app.run(debug=True)
