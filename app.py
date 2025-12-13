@@ -179,6 +179,14 @@ with app.app_context():
     
 # Signup route removed - employees are created by admin only
 # Users get accounts automatically when admin creates an employee
+
+# Marketing Landing Page (About Us)
+@app.route('/about')
+@app.route('/')
+def about():
+    """Public marketing landing page"""
+    return render_template('landing_page.html')
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':

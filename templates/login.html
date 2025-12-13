@@ -2,11 +2,46 @@
 <html>
 
 <head>
-    <title>Login</title>
+    <title>Login - Employee Management System</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/get.css') }}">
+    <style>
+        /* Navigation header for login page */
+        .login-nav {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .login-nav .logo {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: white;
+        }
+
+        .login-nav a {
+            color: white;
+            text-decoration: none;
+            font-weight: 500;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            transition: all 0.3s ease;
+        }
+
+        .login-nav a:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+    </style>
 </head>
 
 <body>
+    <!-- Navigation Header -->
+    <nav class="login-nav">
+        <div class="logo">EMS</div>
+        <a href="{{ url_for('about') }}">About Us</a>
+    </nav>
     <div class="form-container">
         <h2>Login</h2>
         <!-- Action should point to the login route -->
