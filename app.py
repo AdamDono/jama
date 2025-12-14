@@ -175,6 +175,42 @@ with app.app_context():
     ''')
     conn.commit()
     cur.close()
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    # Create subscribers table
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute('''
+        CREATE TABLE IF NOT EXISTS subscribers (
+            id SERIAL PRIMARY KEY,
+            email VARCHAR(255) UNIQUE NOT NULL,
+            subscribed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    conn.commit()
+    cur.close()
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    # Create leads table (Book a Demo)
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute('''
+        CREATE TABLE IF NOT EXISTS leads (
+            id SERIAL PRIMARY KEY,
+            full_name VARCHAR(100) NOT NULL,
+            email VARCHAR(255) NOT NULL,
+            phone VARCHAR(50),
+            company_name VARCHAR(100),
+            team_size VARCHAR(50),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    conn.commit()
+    cur.close()
     conn.close()
     
 # Signup route removed - employees are created by admin only
@@ -186,6 +222,63 @@ with app.app_context():
 def about():
     """Public marketing landing page"""
     return render_template('landing_page.html')
+
+@app.route('/subscribe', methods=['POST'])
+def subscribe():
+    data = request.get_json()
+    email = data.get('email')
+    
+    if not email or '@' not in email:
+        return jsonify({'success': False, 'message': 'Invalid email address'}), 400
+    
+    conn = get_db_connection()
+    cur = conn.cursor()
+    
+    try:
+        # Check if already subscribed
+        cur.execute('SELECT id FROM subscribers WHERE email = %s', (email,))
+        if cur.fetchone():
+            return jsonify({'success': False, 'message': 'You are already subscribed!'}), 409
+            
+        cur.execute('INSERT INTO subscribers (email) VALUES (%s)', (email,))
+        conn.commit()
+        return jsonify({'success': True, 'message': 'Successfully subscribed!'})
+    except Exception as e:
+        conn.rollback()
+        return jsonify({'success': False, 'message': 'An error occurred. Please try again.'}), 500
+    finally:
+        cur.close()
+        conn.close()
+
+@app.route('/book-demo', methods=['POST'])
+def book_demo():
+    data = request.get_json()
+    full_name = data.get('full_name')
+    email = data.get('email')
+    phone = data.get('phone')
+    company_name = data.get('company_name')
+    team_size = data.get('team_size')
+    
+    if not email or not full_name:
+        return jsonify({'success': False, 'message': 'Name and Email are required'}), 400
+    
+    conn = get_db_connection()
+    cur = conn.cursor()
+    
+    try:
+        cur.execute('''
+            INSERT INTO leads (full_name, email, phone, company_name, team_size)
+            VALUES (%s, %s, %s, %s, %s)
+        ''', (full_name, email, phone, company_name, team_size))
+        conn.commit()
+        return jsonify({'success': True, 'message': 'Demo request received! We will be in touch shortly.'})
+    except Exception as e:
+        conn.rollback()
+        return jsonify({'success': False, 'message': 'An error occurred. Please try again.'}), 500
+    finally:
+        cur.close()
+        conn.close()
+
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():

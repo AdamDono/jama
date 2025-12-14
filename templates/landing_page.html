@@ -16,11 +16,22 @@
     <nav class="landing-nav" id="navbar">
         <div class="nav-container">
             <div class="logo">EMS</div>
-            <div class="nav-links">
+
+            <!-- Desktop: Centered Links / Mobile: Menu -->
+            <div class="nav-links" id="navLinks">
                 <a href="#features" class="nav-link">Features</a>
                 <a href="#pricing" class="nav-link">Pricing</a>
                 <a href="#testimonials" class="nav-link">Testimonials</a>
-                <a href="{{ url_for('login') }}" class="btn-login">Login</a>
+                <!-- Mobile only CTA -->
+                <a href="#" class="btn-login mobile-only" onclick="openDemoModal(event)">Book a Demo</a>
+            </div>
+
+            <!-- Desktop Right Side -->
+            <div class="nav-right">
+                <a href="#" class="btn-login desktop-only" onclick="openDemoModal(event)">Book a Demo</a>
+                <div class="mobile-menu-btn" onclick="toggleMenu()">
+                    <i class="bi bi-list"></i>
+                </div>
             </div>
         </div>
     </nav>
@@ -32,7 +43,7 @@
             <p>Powerful, intuitive employee management system designed to simplify HR operations, track leave, and boost
                 productivity.</p>
             <div class="cta-buttons">
-                <a href="{{ url_for('login') }}" class="btn-primary">Get Started</a>
+                <a href="#" class="btn-primary" onclick="openDemoModal(event)">Book a Demo</a>
                 <a href="#features" class="btn-secondary">Learn More</a>
             </div>
         </div>
@@ -414,10 +425,12 @@
             <div class="newsletter-content">
                 <h2>Stay Updated</h2>
                 <p>Join our newsletter for the latest HR tips, product updates, and industry insights.</p>
-                <form class="newsletter-form" onsubmit="event.preventDefault(); alert('Subscribed!');">
-                    <input type="email" placeholder="Enter your email address" required>
+                <form class="newsletter-form" id="newsletterForm">
+                    <input type="email" id="newsletterEmail" placeholder="Enter your email address" required>
                     <button type="submit" class="btn-primary">Subscribe</button>
                 </form>
+                <div id="newsletterMessage"
+                    style="margin-top: 1rem; text-align: center; min-height: 24px; font-weight: 500;"></div>
             </div>
         </div>
     </section>
@@ -475,6 +488,47 @@
         </div>
     </footer>
 
+    <!-- Demo Modal Structure -->
+    <div id="demoModal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <div class="modal-header">
+                <h2>Book a Live Demo</h2>
+                <p>See how EMS can transform your workforce management</p>
+            </div>
+            <form class="demo-form" id="demoForm">
+                <div class="form-group">
+                    <label>Full Name</label>
+                    <input type="text" id="demoName" required placeholder="John Doe">
+                </div>
+                <div class="form-group">
+                    <label>Work Email</label>
+                    <input type="email" id="demoEmail" required placeholder="john@company.com">
+                </div>
+                <div class="form-group">
+                    <label>Phone Number</label>
+                    <input type="tel" id="demoPhone" required placeholder="+1 (555) 000-0000">
+                </div>
+                <div class="form-group">
+                    <label>Company Name</label>
+                    <input type="text" id="demoCompany" required placeholder="Acme Inc">
+                </div>
+                <div class="form-group">
+                    <label>Team Size</label>
+                    <select id="demoSize">
+                        <option>1-10 employees</option>
+                        <option>11-50 employees</option>
+                        <option>51-200 employees</option>
+                        <option>200+ employees</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn-submit">Request Demo</button>
+                <div id="demoMessage" style="margin-top: 1rem; text-align: center; min-height: 24px; font-weight: 500;">
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script>
         // Add scroll effect to navbar
         window.addEventListener('scroll', function () {
@@ -500,6 +554,109 @@
             });
         });
 
+        // Modal Logic
+        const modal = document.getElementById("demoModal");
+        const closeModal = document.getElementsByClassName("close-modal")[0];
+
+        function openDemoModal(e) {
+            if (e) e.preventDefault();
+            modal.style.display = "block";
+        }
+
+        // Add "Book a Demo" buttons logic
+        const contactButtons = document.querySelectorAll('a[href="#"]');
+        contactButtons.forEach(btn => {
+            if (btn.textContent.includes('Contact Sales') || btn.textContent.includes('Contact Us')) {
+                btn.onclick = openDemoModal;
+            }
+        });
+
+        closeModal.onclick = function () {
+            modal.style.display = "none";
+        }
+
+        window.onclick = function (event) {
+            if (event.target == modal) {
+                modal.style.display = "none";
+            }
+        }
+
+        // Demo Form Handler
+        const demoForm = document.getElementById('demoForm');
+        if (demoForm) {
+            demoForm.addEventListener('submit', async function (e) {
+                e.preventDefault();
+                const nameInput = document.getElementById('demoName');
+                const emailInput = document.getElementById('demoEmail');
+                const phoneInput = document.getElementById('demoPhone');
+                const companyInput = document.getElementById('demoCompany');
+                const sizeInput = document.getElementById('demoSize');
+                const messageDiv = document.getElementById('demoMessage');
+                const btn = this.querySelector('button');
+
+                btn.disabled = true;
+                btn.textContent = 'Sending Request...';
+                messageDiv.textContent = '';
+
+                try {
+                    const response = await fetch('/book-demo', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            full_name: nameInput.value,
+                            email: emailInput.value,
+                            phone: phoneInput.value,
+                            company_name: companyInput.value,
+                            team_size: sizeInput.value
+                        })
+                    });
+
+                    const data = await response.json();
+
+                    if (data.success) {
+                        messageDiv.style.color = '#4caf50';
+                        messageDiv.textContent = data.message;
+                        // Clear form
+                        nameInput.value = '';
+                        emailInput.value = '';
+                        phoneInput.value = '';
+                        companyInput.value = '';
+                        // Close modal after 2 seconds
+                        setTimeout(() => {
+                            modal.style.display = 'none';
+                            messageDiv.textContent = '';
+                            btn.textContent = 'Request Demo';
+                            btn.disabled = false;
+                        }, 2000);
+                    } else {
+                        messageDiv.style.color = '#f44336';
+                        messageDiv.textContent = data.message;
+                        btn.disabled = false;
+                        btn.textContent = 'Request Demo';
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    messageDiv.style.color = '#f44336';
+                    messageDiv.textContent = 'Something went wrong. Please try again.';
+                    btn.disabled = false;
+                    btn.textContent = 'Request Demo';
+                }
+            });
+        }
+
+        // Mobile Menu Toggle
+        function toggleMenu() {
+            const navLinks = document.getElementById('navLinks');
+            navLinks.classList.toggle('active');
+        }
+
+        // Close menu when clicking a link
+        document.querySelectorAll('.nav-link').forEach(link => {
+            link.addEventListener('click', () => {
+                document.getElementById('navLinks').classList.remove('active');
+            });
+        });
+
         // FAQ Accordion
         document.querySelectorAll('.faq-question').forEach(question => {
             question.addEventListener('click', () => {
@@ -517,6 +674,49 @@
                 }
             });
         });
+
+        // Newsletter Handler
+        const newsletterForm = document.getElementById('newsletterForm');
+        if (newsletterForm) {
+            newsletterForm.addEventListener('submit', async function (e) {
+                e.preventDefault();
+                const emailInput = document.getElementById('newsletterEmail');
+                const messageDiv = document.getElementById('newsletterMessage');
+                const btn = this.querySelector('button');
+
+                btn.disabled = true;
+                btn.textContent = 'Subscribing...';
+                messageDiv.textContent = '';
+
+                try {
+                    const response = await fetch('/subscribe', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ email: emailInput.value })
+                    });
+
+                    const data = await response.json();
+
+                    if (data.success) {
+                        messageDiv.style.color = '#4caf50'; // Green
+                        messageDiv.textContent = data.message;
+                        emailInput.value = '';
+                    } else {
+                        messageDiv.style.color = '#f44336'; // Red
+                        messageDiv.textContent = data.message;
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    messageDiv.style.color = '#f44336';
+                    messageDiv.textContent = 'Something went wrong. Please try again.';
+                } finally {
+                    btn.disabled = false;
+                    btn.textContent = 'Subscribe';
+                }
+            });
+        }
     </script>
 </body>
 
