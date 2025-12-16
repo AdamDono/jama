@@ -33,3 +33,7 @@ static/uploads/*
 # Database
 *.db
 *.sqlite3
+
+
+#Ignore cursor AI rules
+.cursor/rules/codacy.mdc
