@@ -34,6 +34,11 @@ static/uploads/*
 *.db
 *.sqlite3
 
+## Markdown
+# Ignore all markdown files except the main README
+*.md
+!readme.md
 
-#Ignore cursor AI rules
-.cursor/rules/codacy.mdc
+## Cursor / Codacy metadata
+.cursor/
+*.mdc
