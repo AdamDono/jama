@@ -1643,5 +1643,40 @@ def delete_holiday(holiday_id):
         
     return redirect(url_for('admin_holidays'))
 
+@app.route('/employee/leave_history_partial')
+def leave_history_partial():
+    if 'user_id' not in session:
+        return '', 403
+        
+    page = request.args.get('page', 1, type=int)
+    per_page = 5
+    offset = (page - 1) * per_page
+    
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=DictCursor)
+    
+    try:
+        # Get total count
+        cur.execute('SELECT COUNT(*) FROM leave_applications WHERE user_id = %s', (session['user_id'],))
+        total_records = cur.fetchone()[0]
+        total_pages = (total_records + per_page - 1) // per_page
+        
+        # Fetch paginated leave history
+        cur.execute('''
+            SELECT * FROM leave_applications 
+            WHERE user_id = %s 
+            ORDER BY created_at DESC
+            LIMIT %s OFFSET %s
+        ''', (session['user_id'], per_page, offset))
+        leave_history = cur.fetchall()
+        
+        return render_template('includes/leave_history.html', 
+                             leave_history=leave_history,
+                             page=page,
+                             total_pages=total_pages)
+    finally:
+        cur.close()
+        conn.close()
+
 if __name__ == '__main__':
     app.run(debug=True)
