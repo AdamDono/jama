@@ -533,13 +533,16 @@ def profile():
             try:
                 # Generate employee_id
                 cur.execute('SELECT MAX(id) FROM employees')
-                max_id = cur.fetchone()[0]
-                employee_id = f"EMP{(max_id or 0) + 1:04d}"
+                max_id = result[0] if (result := cur.fetchone()) and result[0] else 0
+                employee_id = f"EMP{max_id + 1:04d}"
+                
+                # Use a dummy unique phone for admin to avoid unique constraint violation
+                dummy_phone = f"000000{session['user_id']}"
                 
                 cur.execute('''
                     INSERT INTO employees (user_id, employee_id, full_name, phone, department, start_date, profile_picture)
                     VALUES (%s, %s, %s, %s, 'Management', CURRENT_DATE, NULL)
-                ''', (session['user_id'], employee_id, session.get('username', 'Admin'), ''))
+                ''', (session['user_id'], employee_id, session.get('username', 'Admin'), dummy_phone))
                 
                 # Initialize leave balance with correct defaults
                 # Annual: 0 (accrues at 1.7 days/month, max 15/year)
