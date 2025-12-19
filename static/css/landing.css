@@ -4,11 +4,15 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
 :root {
-    /* Modern Color Palette */
-    --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    --secondary-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-    --accent-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-    --dark-gradient: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    /* Modern Solid Color Palette */
+    --primary-color: #2563eb;
+    /* Blue 600 */
+    --secondary-color: #4f46e5;
+    /* Indigo 600 */
+    --accent-color: #0ea5e9;
+    /* Sky 500 */
+    --dark-color: #0f172a;
+    /* Slate 900 */
 
     --text-dark: #1a202c;
     --text-light: #718096;
@@ -86,10 +90,8 @@ body.landing-page {
 .logo {
     font-size: 1.5rem;
     font-weight: 800;
-    background: var(--primary-gradient);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    color: var(--primary-color);
+
     transition: transform 0.3s ease;
 }
 
@@ -118,7 +120,7 @@ body.landing-page {
     left: 0;
     width: 0;
     height: 2px;
-    background: var(--primary-gradient);
+    background: var(--primary-color);
     transition: width 0.3s ease;
 }
 
@@ -128,7 +130,7 @@ body.landing-page {
 
 .btn-login {
     padding: 0.75rem 1.5rem;
-    background: var(--primary-gradient);
+    background: var(--primary-color);
     color: white;
     border-radius: 8px;
     text-decoration: none;
@@ -154,7 +156,7 @@ body.landing-page {
     min-height: 100vh;
     display: flex;
     align-items: center;
-    background: linear-gradient(rgba(102, 126, 234, 0.9), rgba(118, 75, 162, 0.9)), url('../images/hero_bg.png');
+    background: linear-gradient(rgba(37, 99, 235, 0.95), rgba(37, 99, 235, 0.95)), url('../images/hero_bg.png');
     background-size: cover;
     background-position: center;
     background-attachment: fixed;
@@ -233,7 +235,7 @@ body.landing-page {
 
 .btn-primary {
     background: white;
-    color: #667eea;
+    color: var(--primary-color);
     box-shadow: var(--shadow-md);
 }
 
@@ -277,10 +279,8 @@ body.landing-page {
     font-size: 2.5rem;
     font-weight: 800;
     margin-bottom: 1rem;
-    background: var(--primary-gradient);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    color: var(--primary-color);
+
 }
 
 .section-subtitle {
@@ -318,7 +318,7 @@ body.landing-page {
     left: 0;
     right: 0;
     height: 4px;
-    background: var(--primary-gradient);
+    background: var(--primary-color);
     transform: scaleX(0);
     transition: transform 0.3s ease;
 }
@@ -336,7 +336,7 @@ body.landing-page {
     width: 60px;
     height: 60px;
     border-radius: 12px;
-    background: var(--primary-gradient);
+    background: var(--primary-color);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -390,7 +390,7 @@ body.landing-page {
 
 .quote-icon {
     font-size: 3rem;
-    color: #667eea;
+    color: var(--primary-color);
     opacity: 0.2;
     line-height: 1;
     margin-bottom: 1rem;
@@ -414,7 +414,7 @@ body.landing-page {
     width: 50px;
     height: 50px;
     border-radius: 50%;
-    background: var(--primary-gradient);
+    background: var(--primary-color);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -436,7 +436,7 @@ body.landing-page {
 
 /* Footer */
 .footer {
-    background: var(--dark-gradient);
+    background: var(--dark-color);
     color: white;
     padding: 4rem 2rem 2rem;
 }
@@ -593,7 +593,7 @@ body.landing-page {
     right: 0;
     width: 50%;
     height: 100%;
-    background: radial-gradient(circle at top right, rgba(102, 126, 234, 0.05), transparent 60%);
+    background: none;
     pointer-events: none;
 }
 
@@ -631,7 +631,7 @@ body.landing-page {
 
 .pricing-card.popular {
     transform: scale(1.05);
-    border: 2px solid #667eea;
+    border: 2px solid var(--primary-color);
     box-shadow: var(--shadow-md);
     z-index: 10;
 }
@@ -646,7 +646,7 @@ body.landing-page {
     top: -15px;
     left: 50%;
     transform: translateX(-50%);
-    background: var(--primary-gradient);
+    background: var(--primary-color);
     color: white;
     padding: 0.5rem 1.5rem;
     border-radius: 20px;
@@ -693,17 +693,13 @@ body.landing-page {
 .pricing-price .amount {
     font-size: 3.5rem;
     font-weight: 800;
-    background: var(--dark-gradient);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    color: var(--dark-color);
+
 }
 
 .pricing-card.popular .pricing-price .amount {
-    background: var(--primary-gradient);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    color: var(--primary-color);
+
 }
 
 .pricing-price .period {
@@ -746,7 +742,7 @@ body.landing-page {
 
 /* Specific button styles for pricing */
 .pricing-card .btn-primary {
-    background: var(--primary-gradient);
+    background: var(--primary-color);
     color: white;
     border: none;
 }
@@ -784,7 +780,7 @@ body.landing-page {
 
 /* Stats Section */
 .stats-section {
-    background: var(--dark-gradient);
+    background: var(--dark-color);
     padding: 3rem 2rem;
     color: white;
 }
@@ -807,10 +803,8 @@ body.landing-page {
     font-size: 2.5rem;
     font-weight: 800;
     margin-bottom: 0.5rem;
-    background: linear-gradient(135deg, #fff 0%, #e2e8f0 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    color: white;
+
 }
 
 .stat-label {
@@ -845,7 +839,7 @@ body.landing-page {
 .step-number {
     width: 50px;
     height: 50px;
-    background: var(--primary-gradient);
+    background: var(--primary-color);
     color: white;
     border-radius: 50%;
     display: flex;
@@ -922,7 +916,7 @@ body.landing-page {
 }
 
 .faq-question i {
-    color: #667eea;
+    color: var(--primary-color);
     transition: transform 0.3s ease;
 }
 
@@ -960,7 +954,7 @@ body.landing-page {
 .newsletter-container {
     max-width: 800px;
     margin: 0 auto;
-    background: var(--primary-gradient);
+    background: var(--primary-color);
     border-radius: 20px;
     padding: 4rem 2rem;
     text-align: center;
@@ -1254,7 +1248,7 @@ body.landing-page {
 
 .comparison-table th.us-col {
     background: #ebf0ff;
-    color: #667eea;
+    color: var(--primary-color);
     font-size: 1.2rem;
     text-align: center;
 }
@@ -1350,14 +1344,14 @@ body.landing-page {
 
 .demo-form input:focus,
 .demo-form select:focus {
-    border-color: #667eea;
-    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
 }
 
 .btn-submit {
     width: 100%;
     padding: 1rem;
-    background: var(--primary-gradient);
+    background: var(--primary-color);
     color: white;
     border: none;
     border-radius: 8px;

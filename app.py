@@ -809,7 +809,8 @@ def employee_dashboard():
                          calendar_data=calendar_data,
                          leave_dates=leave_dates,
                          public_holidays=public_holidays,
-                         leave_history=leave_history)
+                         leave_history=leave_history,
+                         today=datetime.now().date())
 
 @app.route('/landing')
 def landing():
@@ -1293,7 +1294,8 @@ def approve_leave(leave_id):
         if 'annual' in leave_type:
             cur.execute('''
                 UPDATE leave_balance 
-                SET annual_leave = annual_leave - %s 
+                SET annual_leave = annual_leave - %s,
+                    last_annual_reset = CURRENT_DATE
                 WHERE user_id = %s
             ''', (days_to_deduct, leave_app['user_id']))
         elif 'sick' in leave_type:

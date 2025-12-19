@@ -647,8 +647,7 @@
                 <tr>
                     <td>Annual</td>
                     <td>{{ "%.2f"|format(calculated_annual_leave) }}</td>
-                    <td>{{ leave_balance['last_annual_reset'].strftime('%Y-%m-%d') if leave_balance and
-                        leave_balance['last_annual_reset'] else 'N/A' }}</td>
+                    <td>{{ today.strftime('%Y-%m-%d') }}</td>
                 </tr>
                 <tr>
                     <td>Family Responsibility</td>
