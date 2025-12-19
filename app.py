@@ -1394,15 +1394,17 @@ def reject_leave(leave_id):
 
     return redirect(url_for('admin_leaves'))
     # Add new routes
+
 @app.route('/apply_leave', methods=['GET', 'POST'])
 def apply_leave():
     if 'user_id' not in session:
         return redirect(url_for('login'))
-
+        
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=DictCursor)
 
     if request.method == 'POST':
+
         leave_type = request.form['leave_type']
         selected_dates = request.form.getlist('selected_dates[]')
         comments = request.form.get('comments', '')
@@ -1478,7 +1480,10 @@ def apply_leave():
             cur.close()
             conn.close()
 
-    return render_template('apply_leave.html')
+    # If GET or fall-through, redirect back to dashboard
+    if session.get('user_role') == 'admin':
+        return redirect(url_for('landing'))
+    return redirect(url_for('employee_dashboard'))
 
 @app.route('/leave/<int:leave_id>/comments', methods=['GET', 'POST'])
 def leave_comments(leave_id):
