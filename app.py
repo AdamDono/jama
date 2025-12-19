@@ -768,12 +768,23 @@ def employee_dashboard():
     # Get public holidays
     public_holidays = get_public_holidays()
     
-    # Fetch all leave history for this employee (all statuses)
+    # Pagination logic
+    page = request.args.get('page', 1, type=int)
+    per_page = 5
+    offset = (page - 1) * per_page
+    
+    # Get total count
+    cur.execute('SELECT COUNT(*) FROM leave_applications WHERE user_id = %s', (session['user_id'],))
+    total_records = cur.fetchone()[0]
+    total_pages = (total_records + per_page - 1) // per_page
+    
+    # Fetch paginated leave history
     cur.execute('''
         SELECT * FROM leave_applications 
         WHERE user_id = %s 
         ORDER BY created_at DESC
-    ''', (session['user_id'],))
+        LIMIT %s OFFSET %s
+    ''', (session['user_id'], per_page, offset))
     leave_history = cur.fetchall()
     
     # Calendar logic
@@ -800,17 +811,24 @@ def employee_dashboard():
         'current_year': datetime.now().year
     }
     
+    today = datetime.now()
+    
     cur.close()
     conn.close()
     
-    return render_template('employee_dashboard.html', 
+    return render_template('employee_dashboard.html',
+                         employee=employee,
                          leave_balance=leave_balance,
                          calculated_annual_leave=calculated_annual_leave,
-                         calendar_data=calendar_data,
+                         leave_apps=leave_apps,
                          leave_dates=leave_dates,
                          public_holidays=public_holidays,
                          leave_history=leave_history,
-                         today=datetime.now().date())
+                         calendar_data=calendar_data,
+                         today=today,
+                         page=page,
+                         total_pages=total_pages)
+
 
 @app.route('/landing')
 def landing():
@@ -1291,23 +1309,26 @@ def approve_leave(leave_id):
         days_to_deduct = float(leave_app['days'])
         
         # Deduct from appropriate leave balance
+        # Deduct from appropriate leave balance
         if 'annual' in leave_type:
             cur.execute('''
                 UPDATE leave_balance 
                 SET annual_leave = annual_leave - %s,
-                    last_annual_reset = CURRENT_DATE
+                    updated_at = CURRENT_TIMESTAMP
                 WHERE user_id = %s
             ''', (days_to_deduct, leave_app['user_id']))
         elif 'sick' in leave_type:
             cur.execute('''
                 UPDATE leave_balance 
-                SET sick_leave = sick_leave - %s 
+                SET sick_leave = sick_leave - %s,
+                    updated_at = CURRENT_TIMESTAMP
                 WHERE user_id = %s
             ''', (days_to_deduct, leave_app['user_id']))
         elif 'family' in leave_type:
             cur.execute('''
                 UPDATE leave_balance 
-                SET family_leave = family_leave - %s 
+                SET family_leave = family_leave - %s,
+                    updated_at = CURRENT_TIMESTAMP
                 WHERE user_id = %s
             ''', (days_to_deduct, leave_app['user_id']))
         

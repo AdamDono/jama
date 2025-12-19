@@ -652,21 +652,27 @@
                 <tr>
                     <td>Family Responsibility</td>
                     <td>{{ leave_balance['family_leave'] if leave_balance else 3 }}</td>
-                    <td>{{ leave_balance['last_annual_reset'].strftime('%Y-%m-%d') if leave_balance and
-                        leave_balance['last_annual_reset'] else 'N/A' }}</td>
+                    <td>{{ leave_balance['updated_at'].strftime('%Y-%m-%d') if leave_balance and
+                        leave_balance['updated_at'] else (
+                        leave_balance['last_annual_reset'].strftime('%Y-%m-%d') if leave_balance and
+                        leave_balance['last_annual_reset'] else 'N/A'
+                        ) }}</td>
                 </tr>
                 <tr>
                     <td>Sick</td>
                     <td>{{ leave_balance['sick_leave'] if leave_balance else 30 }}</td>
-                    <td>{{ leave_balance['last_annual_reset'].strftime('%Y-%m-%d') if leave_balance and
-                        leave_balance['last_annual_reset'] else 'N/A' }}</td>
+                    <td>{{ leave_balance['updated_at'].strftime('%Y-%m-%d') if leave_balance and
+                        leave_balance['updated_at'] else (
+                        leave_balance['last_annual_reset'].strftime('%Y-%m-%d') if leave_balance and
+                        leave_balance['last_annual_reset'] else 'N/A'
+                        ) }}</td>
                 </tr>
             </tbody>
         </table>
     </div>
 
     <!-- Leave History Section -->
-    <div class="balance-section mt-4">
+    <div id="leave-history" class="balance-section mt-4">
         <div class="balance-header">My Leave History</div>
 
         <div class="table-responsive">
@@ -720,6 +726,33 @@
                 </tbody>
             </table>
         </div>
+
+        <!-- Pagination Controls -->
+        {% if total_pages > 1 %}
+        <nav aria-label="Leave history pagination" class="mt-3">
+            <ul class="pagination justify-content-center">
+                <li class="page-item {% if page == 1 %}disabled{% endif %}">
+                    <a class="page-link"
+                        href="{{ url_for('employee_dashboard', page=page-1, year=calendar_data.year, month=calendar_data.month) }}#leave-history"
+                        tabindex="-1">Previous</a>
+                </li>
+
+                {% for p in range(1, total_pages + 1) %}
+                <li class="page-item {% if p == page %}active{% endif %}">
+                    <a class="page-link"
+                        href="{{ url_for('employee_dashboard', page=p, year=calendar_data.year, month=calendar_data.month) }}#leave-history">{{
+                        p }}</a>
+                </li>
+                {% endfor %}
+
+                <li class="page-item {% if page == total_pages %}disabled{% endif %}">
+                    <a class="page-link"
+                        href="{{ url_for('employee_dashboard', page=page+1, year=calendar_data.year, month=calendar_data.month) }}#leave-history">Next</a>
+                </li>
+
+            </ul>
+        </nav>
+        {% endif %}
     </div>
     <p class="balance-note">These balances take into account pending leave requests.</p>
 </div>
