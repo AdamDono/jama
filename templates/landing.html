@@ -491,22 +491,40 @@
         }
 
         function cancelLeave(leaveId) {
-            if (confirm('Are you sure you want to cancel this leave request?')) {
-                fetch(`/landing/cancel_leave/${leaveId}`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    }
-                })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.success) {
-                            location.reload();
-                        } else {
-                            alert(data.message);
+            showModal(
+                'Cancel Request',
+                'Are you sure you want to cancel this leave request?',
+                function () {
+                    fetch(`/landing/cancel_leave/${leaveId}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
                         }
-                    });
-            }
+                    })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                location.reload();
+                            } else {
+                                if (typeof showAlert === 'function') {
+                                    showAlert('Error', data.message);
+                                } else {
+                                    alert(data.message);
+                                }
+                            }
+                        })
+                        .catch(err => {
+                            console.error(err);
+                            if (typeof showAlert === 'function') {
+                                showAlert('Error', 'An error occurred.');
+                            } else {
+                                alert('An error occurred.');
+                            }
+                        });
+                },
+                'Yes, cancel it!',
+                'btn-danger'
+            );
         }
     </script>
     {% endif %}

@@ -64,9 +64,23 @@
 
     <!-- Ensure cancelLeave is available where history is shown -->
     <script>
-        if (typeof cancelLeave !== 'function') {
-            function cancelLeave(leaveId) {
+        // Use a single instance of the function
+        window.cancelLeave = function (leaveId) {
+            if (typeof showModal !== 'function') {
+                console.error('showModal function not found. Ensure confirmations.js is loaded.');
                 if (confirm('Are you sure you want to cancel this leave request?')) {
+                    // Fallback fetch
+                    fetch(`/landing/cancel_leave/${leaveId}`, { method: 'POST' })
+                        .then(r => r.json())
+                        .then(d => d.success ? location.reload() : alert(d.message));
+                }
+                return;
+            }
+
+            showModal(
+                'Cancel Request',
+                'Are you sure you want to cancel this leave request? This cannot be undone.',
+                function () {
                     fetch(`/landing/cancel_leave/${leaveId}`, {
                         method: 'POST',
                         headers: {
@@ -78,16 +92,18 @@
                             if (data.success) {
                                 location.reload();
                             } else {
-                                alert(data.message);
+                                showAlert('Error', data.message || 'Could not cancel leave.');
                             }
                         })
                         .catch(err => {
-                            console.error('Error canceling leave:', err);
-                            alert('An error occurred while canceling the leave.');
+                            console.error('Error:', err);
+                            showAlert('Error', 'Something went wrong. Please try again.');
                         });
-                }
-            }
-        }
+                },
+                'Yes, cancel it!',
+                'btn-danger'
+            );
+        };
     </script>
 
     <!-- Pagination Controls -->

@@ -91,8 +91,10 @@ body.landing-page {
     font-size: 1.5rem;
     font-weight: 800;
     color: var(--primary-color);
-
     transition: transform 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
 }
 
 .logo:hover {

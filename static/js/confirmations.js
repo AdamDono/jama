@@ -2,11 +2,39 @@
 
 let currentAction = null;
 
-function showModal(title, message, confirmCallback) {
+function showModal(title, message, confirmCallback, btnText = 'Confirm', btnClass = 'btn-danger') {
     document.getElementById('confirmModalLabel').textContent = title;
     document.getElementById('confirmModalBody').textContent = message;
     
     currentAction = confirmCallback;
+    
+    // Configure Action Button
+    const actionBtn = document.getElementById('confirmModalActionBtn');
+    actionBtn.textContent = btnText;
+    actionBtn.className = `btn ${btnClass}`;
+    actionBtn.style.display = 'inline-block';
+
+    // Show Cancel Button
+    document.getElementById('confirmModalCancelBtn').style.display = 'inline-block';
+    
+    const modal = new bootstrap.Modal(document.getElementById('confirmModal'));
+    modal.show();
+}
+
+function showAlert(title, message) {
+    document.getElementById('confirmModalLabel').textContent = title;
+    document.getElementById('confirmModalBody').textContent = message;
+    
+    currentAction = null;
+    
+    // Configure Action Button (OK)
+    const actionBtn = document.getElementById('confirmModalActionBtn');
+    actionBtn.textContent = 'OK';
+    actionBtn.className = 'btn btn-primary';
+    actionBtn.style.display = 'inline-block';
+
+    // Hide Cancel Button
+    document.getElementById('confirmModalCancelBtn').style.display = 'none';
     
     const modal = new bootstrap.Modal(document.getElementById('confirmModal'));
     modal.show();

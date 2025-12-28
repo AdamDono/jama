@@ -1457,6 +1457,11 @@ def apply_leave():
                 flash('No leave days calculated!', 'error')
                 return redirect(url_for('employee_dashboard'))
 
+            # Check Sick Leave Proof Requirement
+            if leave_type == 'Sick' and total_leave_days > 2 and not document_path:
+                flash('A doctor\'s note/document is required for sick leave exceeding 2 days.', 'error')
+                return redirect(url_for('employee_dashboard'))
+
             # NOTE: Balance is NOT deducted here - only when admin approves
             # This prevents double-deduction bug
 

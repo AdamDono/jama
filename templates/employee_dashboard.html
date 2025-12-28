@@ -3,6 +3,7 @@
 {% block title %}My Dashboard{% endblock %}
 
 {% block content %}
+
 <style>
     .leave-request-container {
         background: white;
@@ -229,6 +230,8 @@
         text-align: left;
         border: 1px solid #dee2e6;
         font-weight: 600;
+        color: #343a40;
+        /* Darker text for visibility */
     }
 
     .selected-dates-table td {
@@ -243,34 +246,60 @@
 
     .action-buttons {
         display: flex;
-        gap: 10px;
+        gap: 8px;
+        margin-top: 15px;
+    }
+
+    .btn-action {
+        padding: 8px 16px;
+        border: none;
+        border-radius: 6px;
+        font-weight: 500;
+        font-size: 14px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        height: 36px;
+        /* Fixed height for consistency */
+    }
+
+    .btn-action:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .btn-action:active {
+        transform: translateY(0);
     }
 
     .btn-confirm {
-        background: #17a2b8;
+        background: #0d6efd;
+        /* Bootstrap Primary Blue */
         color: white;
-        border: none;
-        padding: 10px 20px;
-        border-radius: 4px;
-        cursor: pointer;
+    }
+
+    .btn-confirm:hover {
+        background: #0b5ed7;
     }
 
     .btn-cancel {
-        background: #6c757d;
-        color: white;
-        border: none;
-        padding: 10px 20px;
-        border-radius: 4px;
-        cursor: pointer;
+        background: #e9ecef;
+        color: #495057;
+    }
+
+    .btn-cancel:hover {
+        background: #dee2e6;
     }
 
     .btn-remove {
-        background: #dc3545;
-        color: white;
-        border: none;
-        padding: 8px 16px;
-        border-radius: 4px;
-        cursor: pointer;
+        background: #fee2e2;
+        color: #dc3545;
+    }
+
+    .btn-remove:hover {
+        background: #fcd3d3;
     }
 
     /* Desktop: Wider calendar */
@@ -459,19 +488,27 @@
     <div class="leave-request-container">
         <div class="record-leave-header">Record Leave</div>
 
-        <form id="leaveForm" action="/apply_leave" method="POST">
+        <form id="leaveForm" action="/apply_leave" method="POST" enctype="multipart/form-data">
             <div class="row">
                 <!-- LEFT: Calendar -->
                 <div class="col-md-8">
                     <div class="mb-3">
                         <label class="form-label">Type:</label>
                         <select class="form-select" name="leave_type" id="leaveType" required
-                            onchange="updateCalendarColors()">
+                            onchange="updateCalendarColors(); checkSickLeaveRequirement();">
                             <option value="Annual">Annual leave</option>
                             <option value="Sick">Sick leave</option>
                             <option value="Family">Family Responsibility</option>
                             <option value="Unpaid">Unpaid leave</option>
                         </select>
+                    </div>
+
+                    <div class="mb-3" id="documentUploadDiv" style="display: none;">
+                        <label class="form-label">Supporting Document <span class="text-danger" id="docRequiredStar"
+                                style="display:none">*</span></label>
+                        <input type="file" class="form-control" name="document" id="leaveDocument"
+                            accept=".pdf,.jpg,.jpeg,.png">
+                        <div class="form-text text-muted" id="docHelpText">Recommended for sick leave.</div>
                     </div>
 
                     <p class="text-muted small">Select a date from the calendar to begin adding leave days.</p>
@@ -620,10 +657,10 @@
                         </table>
 
                         <div class="action-buttons">
-                            <button type="submit" class="btn-confirm">Confirm</button>
-                            <button type="button" class="btn-cancel"
+                            <button type="submit" class="btn-action btn-confirm">Confirm</button>
+                            <button type="button" class="btn-action btn-cancel"
                                 onclick="window.location.href='/landing'">Cancel</button>
-                            <button type="button" class="btn-remove" onclick="clearAllDates()">Remove Dates</button>
+                            <button type="button" class="btn-action btn-remove" onclick="clearAllDates()">Clear</button>
                         </div>
                     </div>
                 </div>
@@ -682,7 +719,9 @@
 </div>
 
 <script>
+    // State management
     let selectedDates = new Set();
+    let dateStates = {}; // Object to store state: { "YYYY-MM-DD": { isPartial: false, hours: 4 } }
     let currentMonth = {{ calendar_data.month }};
     let currentYear = {{ calendar_data.year }};
 
@@ -698,26 +737,33 @@
     function toggleDate(dateStr) {
         const td = document.querySelector(`td[data-date="${dateStr}"]`);
 
-        // Check if it's a weekend
         if (td && td.dataset.isWeekend === 'true') {
-            alert('Weekends cannot be selected for leave');
+            showAlert('Weekend', 'Weekends cannot be selected for leave.');
             return;
         }
 
         if (td && td.dataset.isHoliday === 'true') {
-            alert('Public holidays cannot be selected for leave');
+            showAlert('Holiday', 'Public holidays cannot be selected for leave.');
             return;
         }
 
         if (selectedDates.has(dateStr)) {
             selectedDates.delete(dateStr);
-            updateCalendarColors();
+            delete dateStates[dateStr];
         } else {
             selectedDates.add(dateStr);
-            updateCalendarColors();
+            // Initialize state for new date
+            dateStates[dateStr] = { isPartial: false, hours: 4 };
         }
+
+        refreshUI();
+    }
+
+    function refreshUI() {
+        updateCalendarColors();
         updateSelectedDatesTable();
         updateDateRange();
+        checkSickLeaveRequirement();
     }
 
     function updateCalendarColors() {
@@ -751,32 +797,50 @@
         }
 
         const sortedDates = Array.from(selectedDates).sort();
-        tbody.innerHTML = sortedDates.map(date => `
-        <tr>
-            <td>${date}</td>
-            <td style="text-align: center;">
-                <input type="checkbox" name="partial_${date}" value="1" onchange="toggleHoursInput('${date}', this.checked)">
-            </td>
-            <td style="text-align: center;">
-                <input type="number" id="hours_${date}" name="hours_${date}" min="1" max="8" step="0.5" 
-                       class="form-control form-control-sm" style="width: 70px; display: none;" placeholder="8">
-            </td>
-        </tr>
-    `).join('');
+        tbody.innerHTML = sortedDates.map(date => {
+            const state = dateStates[date] || { isPartial: false, hours: 4 };
+            const checked = state.isPartial ? 'checked' : '';
+            const displayStyle = state.isPartial ? 'inline-block' : 'none';
+            const hoursVal = state.hours;
+
+            return `
+            <tr>
+                <td>${date}</td>
+                <td style="text-align: center;">
+                    <input type="checkbox" name="partial_${date}" value="1" ${checked} onchange="updateDateState('${date}', this.checked)">
+                </td>
+                <td style="text-align: center;">
+                    <input type="number" id="hours_${date}" name="hours_${date}" min="0.5" max="8" step="0.5" 
+                           class="form-control form-control-sm" 
+                           style="width: 70px; display: ${displayStyle};" 
+                           value="${hoursVal}"
+                           onchange="updateHoursState('${date}', this.value)"
+                           ${state.isPartial ? 'required' : ''}>
+                </td>
+            </tr>
+            `;
+        }).join('');
     }
 
-    function toggleHoursInput(date, isChecked) {
+    function updateDateState(date, isPartial) {
+        if (!dateStates[date]) dateStates[date] = { hours: 4 };
+        dateStates[date].isPartial = isPartial;
+
+        // Update UI for this row specifically to avoid full re-render lose focus
         const hoursInput = document.getElementById(`hours_${date}`);
         if (hoursInput) {
-            hoursInput.style.display = isChecked ? 'inline-block' : 'none';
-            if (isChecked) {
-                hoursInput.required = true;
-                hoursInput.focus();
-            } else {
-                hoursInput.required = false;
-                hoursInput.value = '';
-            }
+            hoursInput.style.display = isPartial ? 'inline-block' : 'none';
+            hoursInput.required = isPartial;
+            if (isPartial) hoursInput.focus();
         }
+
+        checkSickLeaveRequirement();
+    }
+
+    function updateHoursState(date, hours) {
+        if (!dateStates[date]) dateStates[date] = { isPartial: true };
+        dateStates[date].hours = hours;
+        checkSickLeaveRequirement();
     }
 
     function updateDateRange() {
@@ -791,11 +855,55 @@
         document.getElementById('toDate').value = sortedDates[sortedDates.length - 1];
     }
 
+    function calculateTotalDays() {
+        let total = 0;
+        selectedDates.forEach(date => {
+            const state = dateStates[date];
+            if (state && state.isPartial) {
+                total += parseFloat(state.hours || 0) / 8.0;
+            } else {
+                total += 1.0;
+            }
+        });
+        return total;
+    }
+
+    function checkSickLeaveRequirement() {
+        const leaveType = document.getElementById('leaveType').value;
+        const totalDays = calculateTotalDays();
+        const docDiv = document.getElementById('documentUploadDiv');
+        const docInput = document.getElementById('leaveDocument');
+        const docStar = document.getElementById('docRequiredStar');
+        const docHelp = document.getElementById('docHelpText');
+
+        // Ensure docInput exists
+        if (!docInput) return;
+
+        // Always show the upload field for flexibility
+        if (docDiv) docDiv.style.display = 'block';
+
+        const isSickOverLimit = (leaveType === 'Sick' && totalDays > 2);
+
+        if (isSickOverLimit) {
+            docInput.required = true;
+            if (docStar) docStar.style.display = 'inline';
+
+            // Clear previous helper text classes to avoid stacking
+            docHelp.className = 'form-text fw-bold text-danger';
+            docHelp.innerHTML = '<i class="bi bi-exclamation-triangle-fill me-1"></i> Doctor\'s note is <strong>REQUIRED</strong> for sick leave exceeding 2 days.';
+        } else {
+            docInput.required = false;
+            if (docStar) docStar.style.display = 'none';
+
+            docHelp.className = 'form-text text-muted';
+            docHelp.textContent = 'Optional support document (e.g., medical certificate).';
+        }
+    }
+
     function clearAllDates() {
         selectedDates.clear();
-        updateCalendarColors();
-        updateSelectedDatesTable();
-        updateDateRange();
+        dateStates = {};
+        refreshUI();
     }
 
     function changeMonth(delta) {
@@ -818,7 +926,7 @@
     document.getElementById('leaveForm').addEventListener('submit', function (e) {
         if (selectedDates.size === 0) {
             e.preventDefault();
-            alert('Please select at least one date');
+            showAlert('No Dates Selected', 'Please select at least one date from the calendar to apply for leave.');
             return false;
         }
 
